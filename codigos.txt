@@ -166,7 +166,7 @@ class HybridApiService {
               yield parsed['delta'].toString();
             }
           } catch (_) {
-            print('[DEBUG] Stream remoto não JSON delta: $payload');
+            print('[DEBUG] Stream remoto nÃ£o JSON delta: $payload');
             yield payload;
           }
         }
@@ -174,8 +174,8 @@ class HybridApiService {
     }
   }
 
-  /// Indexa um projeto já aberto (pasta raiz).
-  /// Retorna um mapa com { "caminho/arquivo": "resumo/conteúdo" }
+  /// Indexa um projeto jÃ¡ aberto (pasta raiz).
+  /// Retorna um mapa com { "caminho/arquivo": "resumo/conteÃºdo" }
   Future> indexProject(String rootPath) async {
     print('[DEBUG] indexProject called: rootPath=$rootPath');
     final uri = Uri.parse('$baseUrl/index');
@@ -199,7 +199,7 @@ class HybridApiService {
     throw Exception('Erro ao indexar projeto: ${resp.statusCode} ${resp.body}');
   }
 
-  /// Faz uma consulta sobre o projeto já indexado.
+  /// Faz uma consulta sobre o projeto jÃ¡ indexado.
   Future queryProject(String query) async {
     print('[DEBUG] queryProject called: query=$query');
     final uri = Uri.parse('$baseUrl/query');
@@ -255,7 +255,7 @@ class _SessionBootPageState extends State {
       final api = context.read();
 
       final nowId = DateTime.now().millisecondsSinceEpoch.toString();
-      print('[DEBUG] Criando nova sessão: $nowId');
+      print('[DEBUG] Criando nova sessÃ£o: $nowId');
       state.setSession(proj: state.projectId, sess: nowId);
       api.currentProject = state.projectId;
       api.currentSession = nowId;
@@ -275,7 +275,7 @@ class _SessionBootPageState extends State {
   Widget build(BuildContext context) {
     print('[DEBUG] Build SessionBootPage');
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_error != null) return Scaffold(body: Center(child: Text('Falha ao iniciar sessão: $_error')));
+    if (_error != null) return Scaffold(body: Center(child: Text('Falha ao iniciar sessÃ£o: $_error')));
     return ChatPage(getProjectRootPath: () {  },);
   }
 }
@@ -378,7 +378,7 @@ class MKIdeApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: darkTheme,
-        home: const HomePage(), // mantém o layout SplitView original
+        home: const HomePage(), // mantÃ©m o layout SplitView original
       ),
     );
   }
@@ -601,7 +601,7 @@ class _HomePageState extends State {
         PopupMenuItem(
           child: const Text("Renomear"),
           onTap: () async {
-            // Pode abrir diálogo de renome
+            // Pode abrir diÃ¡logo de renome
           },
         ),
         PopupMenuItem(
@@ -730,11 +730,11 @@ import '../widgets/chat/chat_action_bar.dart';
 import '../widgets/chat/chat_header.dart';
 
 class ChatPage extends StatefulWidget {
-  final String? Function() getProjectRootPath; // novo parâmetro
+  final String? Function() getProjectRootPath; // novo parÃ¢metro
 
   const ChatPage({
     super.key,
-    required this.getProjectRootPath, // obrigatório
+    required this.getProjectRootPath, // obrigatÃ³rio
   });
 
   @override
@@ -746,9 +746,9 @@ class _ChatPageState extends State {
   final ScrollController _chatScrollController = ScrollController();
   StreamSubscription? _streamSub;
 
-  bool _useLocal = true; // controla se está em modo Local ou Servidor
-  bool _projectIndexed = false; // se o botão de indexação está ativo
-  Map _projectIndex = {}; // conteúdo indexado do projeto
+  bool _useLocal = true; // controla se estÃ¡ em modo Local ou Servidor
+  bool _projectIndexed = false; // se o botÃ£o de indexaÃ§Ã£o estÃ¡ ativo
+  Map _projectIndex = {}; // conteÃºdo indexado do projeto
   ProjectContextAgent? _contextAgent;
   String? _currentProjectId;
 
@@ -805,7 +805,7 @@ class _ChatPageState extends State {
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
-    // 🔹 Injeta contexto atualizado se o projeto estiver indexado
+    // ðŸ”¹ Injeta contexto atualizado se o projeto estiver indexado
     if (_projectIndexed && _projectIndex.isNotEmpty) {
       final contextText = _projectIndex.entries
           .map((e) => '${e.key}: ${e.value}')
@@ -886,7 +886,7 @@ class _ChatPageState extends State {
 
     return Column(
       children: [
-        // 🔹 Cabeçalho do chat
+        // ðŸ”¹ CabeÃ§alho do chat
         ChatHeader(
           useLocal: _useLocal,
           streaming: state.streaming,
@@ -904,7 +904,7 @@ class _ChatPageState extends State {
           },
         ),
 
-        // 🔹 Corpo do chat (mensagens)
+        // ðŸ”¹ Corpo do chat (mensagens)
         Expanded(
           child: ListView.builder(
             controller: _chatScrollController,
@@ -948,7 +948,7 @@ class _ChatPageState extends State {
                                   onPressed: () {
                                     Clipboard.setData(ClipboardData(text: m.content));
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Copiado para área de transferência')),
+                                      const SnackBar(content: Text('Copiado para Ã¡rea de transferÃªncia')),
                                     );
                                   },
                                 ),
@@ -977,7 +977,7 @@ class _ChatPageState extends State {
           ),
         ),
 
-        // 🔹 Action bar com os botões extras
+        // ðŸ”¹ Action bar com os botÃµes extras
         ChatActionBar(
           useLocal: _useLocal,
           onClearMessages: () => state.clearMessages(),
@@ -991,7 +991,7 @@ class _ChatPageState extends State {
           key: const ValueKey('chatActionBar'),
         ),
 
-        // 🔹 Botão verde de indexação do projeto
+        // ðŸ”¹ BotÃ£o verde de indexaÃ§Ã£o do projeto
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: ElevatedButton.icon(
@@ -1004,7 +1004,7 @@ class _ChatPageState extends State {
           ),
         ),
 
-        // 🔹 Campo de input
+        // ðŸ”¹ Campo de input
         const Divider(height: 1, color: Color(0xFF222426)),
         SafeArea(
           top: false,
@@ -1065,7 +1065,7 @@ class LeftPanel extends StatefulWidget {
     this.onRightClick,
   });
 
-  /// ✅ Expor caminho raiz do projeto aberto
+  /// âœ… Expor caminho raiz do projeto aberto
   String? get projectRootPath => rootNode?.path;
 
   @override
@@ -1172,7 +1172,7 @@ class _LeftPanelState extends State {
       ),
       child: Column(
         children: [
-          // Cabeçalho
+          // CabeÃ§alho
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1218,7 +1218,7 @@ class _LeftPanelState extends State {
             ),
           ),
           const Divider(height: 1, color: Color(0xFF222426)),
-          // Rodapé com ajuda e configurações
+          // RodapÃ© com ajuda e configuraÃ§Ãµes
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -1235,7 +1235,7 @@ class _LeftPanelState extends State {
                   children: [
                     Icon(Icons.settings, color: Colors.white70, size: 18),
                     SizedBox(width: 8),
-                    Text('Configurações',
+                    Text('ConfiguraÃ§Ãµes',
                         style: TextStyle(color: Colors.white70)),
                   ],
                 ),
@@ -1266,7 +1266,7 @@ class ChatActionBar extends StatefulWidget {
   final ValueChanged onConnectionChange;
   final bool useLocal;
 
-  /// ✅ Novo: função para pegar caminho do projeto aberto
+  /// âœ… Novo: funÃ§Ã£o para pegar caminho do projeto aberto
   final String? Function() getProjectRootPath;
 
   const ChatActionBar({
@@ -1275,7 +1275,7 @@ class ChatActionBar extends StatefulWidget {
     required this.getLastAssistantText,
     required this.onConnectionChange,
     required this.useLocal,
-    required this.getProjectRootPath, // ✅ obrigatório agora
+    required this.getProjectRootPath, // âœ… obrigatÃ³rio agora
   });
 
   @override
@@ -1298,7 +1298,7 @@ class _ChatActionBarState extends State {
     print('[DEBUG][ChatActionBar] _projectIndexed = $_projectIndexed');
 
     if (dir == null || dir.isEmpty) {
-      print('[DEBUG][ChatActionBar] Nenhum projeto aberto. Abortando indexação.');
+      print('[DEBUG][ChatActionBar] Nenhum projeto aberto. Abortando indexaÃ§Ã£o.');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Abra um projeto antes de indexar')),
       );
@@ -1322,14 +1322,14 @@ class _ChatActionBarState extends State {
         const SnackBar(content: Text('Projeto indexado')),
       );
     } else {
-      print('[DEBUG][ChatActionBar] Desativando indexação...');
+      print('[DEBUG][ChatActionBar] Desativando indexaÃ§Ã£o...');
       _projectIndex.clear();
       await _contextAgent?.clearContext();
       _contextAgent = null;
       _currentProjectId = null;
       setState(() => _projectIndexed = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Indexação desativada')),
+        const SnackBar(content: Text('IndexaÃ§Ã£o desativada')),
       );
     }
   }
@@ -1349,7 +1349,7 @@ class _ChatActionBarState extends State {
   }
 
 
-  // ✅ Novo helper para injetar contexto no prompt da IA
+  // âœ… Novo helper para injetar contexto no prompt da IA
   Future>> injectContext(List> messages) async {
     if (_contextAgent == null) return messages;
     return await _contextAgent!.injectContextIntoMessages(messages);
@@ -1409,7 +1409,7 @@ class _ChatActionBarState extends State {
     } catch (_) {}
   }
 
-  // ----------------- Operações de arquivo -----------------
+  // ----------------- OperaÃ§Ãµes de arquivo -----------------
   Future _undoFile(String path) async {
     try {
       final uStack = _undoStacks[path];
@@ -1455,7 +1455,7 @@ class _ChatActionBarState extends State {
 
     final fullPath = p.join(dir, filename);
     if (File(fullPath).existsSync()) {
-      final overwrite = await _confirm('Arquivo existe', 'Arquivo já existe. Deseja sobrescrever?');
+      final overwrite = await _confirm('Arquivo existe', 'Arquivo jÃ¡ existe. Deseja sobrescrever?');
       if (!overwrite) return;
     }
 
@@ -1484,7 +1484,7 @@ class _ChatActionBarState extends State {
 
     final fullPath = p.join(dir, folderName);
     if (Directory(fullPath).existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pasta já existe')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pasta jÃ¡ existe')));
       return;
     }
 
@@ -1501,7 +1501,7 @@ class _ChatActionBarState extends State {
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
-    final confirm = await _confirm('Confirmar exclusão', 'Deseja excluir permanentemente: ${p.basename(path)} ?');
+    final confirm = await _confirm('Confirmar exclusÃ£o', 'Deseja excluir permanentemente: ${p.basename(path)} ?');
     if (!confirm) return;
 
     try {
@@ -1512,7 +1512,7 @@ class _ChatActionBarState extends State {
         _pushUndo(path, '<>');
         Directory(path).deleteSync(recursive: true);
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Excluído: ${p.basename(path)}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ExcluÃ­do: ${p.basename(path)}')));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
     }
@@ -1553,8 +1553,8 @@ class _ChatActionBarState extends State {
 
     final targetPath = result.files.single.path!;
     final confirm = await _confirm(
-      'Aplicar alteração',
-      'Deseja aplicar o conteúdo do assistant ao arquivo ${p.basename(targetPath)} ?',
+      'Aplicar alteraÃ§Ã£o',
+      'Deseja aplicar o conteÃºdo do assistant ao arquivo ${p.basename(targetPath)} ?',
     );
     if (!confirm) return;
 
@@ -1564,7 +1564,7 @@ class _ChatActionBarState extends State {
       File(targetPath).writeAsStringSync(lastAssistant);
       await _notifyEditorIfProviderExists(targetPath, lastAssistant);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Conteúdo aplicado a ${p.basename(targetPath)}')),
+        SnackBar(content: Text('ConteÃºdo aplicado a ${p.basename(targetPath)}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro aplicando patch: $e')));
@@ -1638,7 +1638,7 @@ class _ChatActionBarState extends State {
           _roundBtn(Icons.create_new_folder, 'Criar pasta', _createFolder),
           _roundBtn(Icons.delete_outline, 'Excluir arquivo/pasta', _deletePath),
           _roundBtn(Icons.drive_file_rename_outline, 'Renomear', _renamePath),
-          _roundBtn(Icons.code, 'Aplicar conteúdo (IA) a arquivo', _applyAIPatchToFile),
+          _roundBtn(Icons.code, 'Aplicar conteÃºdo (IA) a arquivo', _applyAIPatchToFile),
           _roundBtn(Icons.undo, 'Undo (arquivo)', () async {
             final result = await FilePicker.platform.pickFiles(allowMultiple: false);
             if (result == null || result.files.single.path == null) return;
@@ -1686,7 +1686,7 @@ class ChatHeader extends StatelessWidget {
 
     return Column(
       children: [
-        // Linha 1: Conexão (Local/Servidor)
+        // Linha 1: ConexÃ£o (Local/Servidor)
         Container(
           alignment: Alignment.centerLeft,
           color: const Color(0xFF0F1115),
@@ -1694,7 +1694,7 @@ class ChatHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              const Text('Conexão:', style: TextStyle(color: Colors.white70)),
+              const Text('ConexÃ£o:', style: TextStyle(color: Colors.white70)),
               const SizedBox(width: 12),
               DropdownButton(
                 value: useLocal,
@@ -1706,21 +1706,21 @@ class ChatHeader extends StatelessWidget {
                 onChanged: (v) async {
                   if (v == null) return;
                   try {
-                    // atualiza o serviço e avisa o chat_page via callback
+                    // atualiza o serviÃ§o e avisa o chat_page via callback
                     api.useLocal = v;
                     onConnectionChange(v);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(v ? 'Conexão: Local' : 'Conexão: Servidor HTTP')),
+                      SnackBar(content: Text(v ? 'ConexÃ£o: Local' : 'ConexÃ£o: Servidor HTTP')),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erro ao alternar conexão: $e')),
+                      SnackBar(content: Text('Erro ao alternar conexÃ£o: $e')),
                     );
                   }
                 },
               ),
               const SizedBox(width: 8),
-              // opcional: botão para forçar reload dos modelos
+              // opcional: botÃ£o para forÃ§ar reload dos modelos
               IconButton(
                 tooltip: 'Recarregar modelos',
                 icon: const Icon(Icons.refresh, color: Colors.white70),
@@ -1809,7 +1809,7 @@ class ProjectContextAgent {
 
   ProjectContextAgent(this.projectId);
 
-  /// Caminho fixo de persistência (~/.mkide/projects/{projectId}/context.json)
+  /// Caminho fixo de persistÃªncia (~/.mkide/projects/{projectId}/context.json)
   String get _contextFilePath {
     // Caminho fixo para indexes
     final base = p.join('/home/mk/mkide_ia/data/indexes', projectId);
@@ -1860,7 +1860,7 @@ class ProjectContextAgent {
     if (ctx.isEmpty) return messages;
 
     final summary = ctx.entries
-        .map((e) => '📄 ${p.basename(e.key)}\n${e.value}')
+        .map((e) => 'ðŸ“„ ${p.basename(e.key)}\n${e.value}')
         .join('\n\n');
 
     return [
@@ -1878,7 +1878,7 @@ class ProjectContextAgent {
 --------------------------------------------------------------------------------
 11. Codigo: fs_node.dart
 --------------------------------------------------------------------------------
-// Modelo de nó da árvore de arquivos/pastas
+// Modelo de nÃ³ da Ã¡rvore de arquivos/pastas
 import 'dart:io';
 
 class FsNode {
@@ -1897,7 +1897,7 @@ class FsNode {
   FsNode copyWith({List? children}) =>
       FsNode(name: name, path: path, isDir: isDir, children: children ?? this.children);
 
-  /// Cria a árvore a partir de um Directory
+  /// Cria a Ã¡rvore a partir de um Directory
   factory FsNode.fromDirectory(Directory dir) {
     final children = [];
     for (var entity in dir.listSync(recursive: false)) {
@@ -1922,37 +1922,37 @@ class FsNode {
 --------------------------------------------------------------------------------
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 
-//EditorController → é focado no que está aberto no editor central (tabs, texto carregado, alterações, salvar, etc). Ele gerencia o conteúdo que o usuário está editando.
+//EditorController â†’ Ã© focado no que estÃ¡ aberto no editor central (tabs, texto carregado, alteraÃ§Ãµes, salvar, etc). Ele gerencia o conteÃºdo que o usuÃ¡rio estÃ¡ editando.
 
 /// Controla o estado do editor (texto, undo/redo) e padroniza
-/// o ponto de integração com a IA e a UI.
+/// o ponto de integraÃ§Ã£o com a IA e a UI.
 class EditorController {
   final CodeController codeController;
 
   final List _undoStack = [];
   final List _redoStack = [];
 
-  /// Texto "commitado" (último estado estável após salvar/abrir/undo/redo).
+  /// Texto "commitado" (Ãºltimo estado estÃ¡vel apÃ³s salvar/abrir/undo/redo).
   String _committedText;
 
-  /// Indica se já abrimos uma sessão de edição desde o último commit.
+  /// Indica se jÃ¡ abrimos uma sessÃ£o de ediÃ§Ã£o desde o Ãºltimo commit.
   bool _editingSessionOpen = false;
 
   EditorController(this.codeController) : _committedText = codeController.text;
 
-  /// Chamado quando a UI (digitação do usuário) altera o texto.
-  /// Na primeira mudança, empilha o snapshot anterior no undo.
+  /// Chamado quando a UI (digitaÃ§Ã£o do usuÃ¡rio) altera o texto.
+  /// Na primeira mudanÃ§a, empilha o snapshot anterior no undo.
   void onUserChange() {
     if (!_editingSessionOpen) {
       _undoStack.add(_committedText);
       _redoStack.clear();
       _editingSessionOpen = true;
     }
-    // Não mexemos em codeController.text aqui, o CodeField já atualizou.
+    // NÃ£o mexemos em codeController.text aqui, o CodeField jÃ¡ atualizou.
   }
 
-  /// Atualiza o texto de forma programática (ex.: IA aplicando patch).
-  /// Empilha o estado atual no undo e reseta sessão.
+  /// Atualiza o texto de forma programÃ¡tica (ex.: IA aplicando patch).
+  /// Empilha o estado atual no undo e reseta sessÃ£o.
   void updateText(String newText) {
     _undoStack.add(codeController.text);
     _redoStack.clear();
@@ -1961,14 +1961,14 @@ class EditorController {
     _editingSessionOpen = false;
   }
 
-  /// Confirma o estado atual como base (após salvar/abrir/undo/redo).
+  /// Confirma o estado atual como base (apÃ³s salvar/abrir/undo/redo).
   void commitEditingSession() {
     _committedText = codeController.text;
     _editingSessionOpen = false;
   }
 
   void undo() {
-    // Fecha sessão aberta para não perder consistência.
+    // Fecha sessÃ£o aberta para nÃ£o perder consistÃªncia.
     if (_editingSessionOpen) {
       commitEditingSession();
     }
@@ -2003,37 +2003,37 @@ class EditorController {
 --------------------------------------------------------------------------------
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 
-//EditorController → é focado no que está aberto no editor central (tabs, texto carregado, alterações, salvar, etc). Ele gerencia o conteúdo que o usuário está editando.
+//EditorController â†’ Ã© focado no que estÃ¡ aberto no editor central (tabs, texto carregado, alteraÃ§Ãµes, salvar, etc). Ele gerencia o conteÃºdo que o usuÃ¡rio estÃ¡ editando.
 
 /// Controla o estado do editor (texto, undo/redo) e padroniza
-/// o ponto de integração com a IA e a UI.
+/// o ponto de integraÃ§Ã£o com a IA e a UI.
 class EditorController {
   final CodeController codeController;
 
   final List _undoStack = [];
   final List _redoStack = [];
 
-  /// Texto "commitado" (último estado estável após salvar/abrir/undo/redo).
+  /// Texto "commitado" (Ãºltimo estado estÃ¡vel apÃ³s salvar/abrir/undo/redo).
   String _committedText;
 
-  /// Indica se já abrimos uma sessão de edição desde o último commit.
+  /// Indica se jÃ¡ abrimos uma sessÃ£o de ediÃ§Ã£o desde o Ãºltimo commit.
   bool _editingSessionOpen = false;
 
   EditorController(this.codeController) : _committedText = codeController.text;
 
-  /// Chamado quando a UI (digitação do usuário) altera o texto.
-  /// Na primeira mudança, empilha o snapshot anterior no undo.
+  /// Chamado quando a UI (digitaÃ§Ã£o do usuÃ¡rio) altera o texto.
+  /// Na primeira mudanÃ§a, empilha o snapshot anterior no undo.
   void onUserChange() {
     if (!_editingSessionOpen) {
       _undoStack.add(_committedText);
       _redoStack.clear();
       _editingSessionOpen = true;
     }
-    // Não mexemos em codeController.text aqui, o CodeField já atualizou.
+    // NÃ£o mexemos em codeController.text aqui, o CodeField jÃ¡ atualizou.
   }
 
-  /// Atualiza o texto de forma programática (ex.: IA aplicando patch).
-  /// Empilha o estado atual no undo e reseta sessão.
+  /// Atualiza o texto de forma programÃ¡tica (ex.: IA aplicando patch).
+  /// Empilha o estado atual no undo e reseta sessÃ£o.
   void updateText(String newText) {
     _undoStack.add(codeController.text);
     _redoStack.clear();
@@ -2042,14 +2042,14 @@ class EditorController {
     _editingSessionOpen = false;
   }
 
-  /// Confirma o estado atual como base (após salvar/abrir/undo/redo).
+  /// Confirma o estado atual como base (apÃ³s salvar/abrir/undo/redo).
   void commitEditingSession() {
     _committedText = codeController.text;
     _editingSessionOpen = false;
   }
 
   void undo() {
-    // Fecha sessão aberta para não perder consistência.
+    // Fecha sessÃ£o aberta para nÃ£o perder consistÃªncia.
     if (_editingSessionOpen) {
       commitEditingSession();
     }
@@ -2080,7 +2080,7 @@ class EditorController {
 
 
 --------------------------------------------------------------------------------
-14. Código: model_provider.dart
+14. CÃ³digo: model_provider.dart
 --------------------------------------------------------------------------------
 //codigo atual
 import 'package:flutter/material.dart';
@@ -2112,12 +2112,12 @@ class ModelProvider extends ChangeNotifier {
 import 'dart:io';
 import 'package:path/path.dart' as p;
 
-/// Serviço simples de operações em arquivos/pastas com backup básico.
-/// - backups são guardados em /.mkideia_backups//
+/// ServiÃ§o simples de operaÃ§Ãµes em arquivos/pastas com backup bÃ¡sico.
+/// - backups sÃ£o guardados em /.mkideia_backups//
 class FileService {
   FileService();
 
-  /// Cria um arquivo (e diretório pai se necessário) com conteúdo inicial.
+  /// Cria um arquivo (e diretÃ³rio pai se necessÃ¡rio) com conteÃºdo inicial.
   /// Retorna true se criado/existente com sucesso.
   Future createFile(String path, {String content = ''}) async {
     final f = File(path);
@@ -2129,7 +2129,7 @@ class FileService {
       await f.writeAsString(content);
       return true;
     } else {
-      // já existe: não sobrescreve
+      // jÃ¡ existe: nÃ£o sobrescreve
       return false;
     }
   }
@@ -2168,7 +2168,7 @@ class FileService {
     }
   }
 
-  /// Escreve conteúdo em arquivo. Faz backup antes (se arquivo existir).
+  /// Escreve conteÃºdo em arquivo. Faz backup antes (se arquivo existir).
   /// Retorna old content (antes da escrita) para diffs/undo.
   Future writeFile(String path, String content) async {
     final f = File(path);
@@ -2188,7 +2188,7 @@ class FileService {
   /// Copia recursivamente uma pasta (use para "Salvar projeto como").
   Future copyDirectory(String srcPath, String destPath) async {
     final src = Directory(srcPath);
-    if (!await src.exists()) throw Exception('Origem não encontrada: $srcPath');
+    if (!await src.exists()) throw Exception('Origem nÃ£o encontrada: $srcPath');
     final dest = Directory(destPath);
     if (!await dest.exists()) await dest.create(recursive: true);
 
@@ -2220,12 +2220,12 @@ class FileService {
       if (!await backupFile.parent.exists()) await backupFile.parent.create(recursive: true);
       await backupFile.writeAsString(content);
     } catch (_) {
-      // não estourar exceção de backup
+      // nÃ£o estourar exceÃ§Ã£o de backup
     }
   }
 
-  /// Tenta localizar a raiz do projeto olhando para a pasta que contém 'pubspec.yaml'
-  /// sobe até encontrar ou retorna null.
+  /// Tenta localizar a raiz do projeto olhando para a pasta que contÃ©m 'pubspec.yaml'
+  /// sobe atÃ© encontrar ou retorna null.
   String? _findProjectRoot(String startPath) {
     var dir = Directory(startPath);
     if (!dir.existsSync()) dir = dir.parent;
@@ -2323,7 +2323,7 @@ class FileSystemTree extends StatelessWidget {
                 left: details.globalPosition.dx,
                 top: details.globalPosition.dy,
                 child: FileContextMenu(
-                  isFolder: true, // ou false dependendo do nó clicado
+                  isFolder: true, // ou false dependendo do nÃ³ clicado
                   onNewFile: () => print("Novo arquivo"),
                   onNewFolder: () => print("Nova pasta"),
                   onRename: () => print("Renomear"),
@@ -2341,7 +2341,7 @@ class FileSystemTree extends StatelessWidget {
         );
       },
       child: const Center(
-        child: Text("Clique com o botão direito aqui"),
+        child: Text("Clique com o botÃ£o direito aqui"),
       ),
     );
   }
@@ -2448,7 +2448,7 @@ import 'package:highlight/languages/python.dart';
 import 'package:highlight/languages/xml.dart';
 import 'package:highlight/languages/yaml.dart';
 
-/// Mapeamento de extensões para linguagens
+/// Mapeamento de extensÃµes para linguagens
 final Map languageMap = {
   '.dart': dart,
   '.js': javascript,
@@ -2465,7 +2465,7 @@ final Map languageMap = {
   '.xml': xml,
 };
 
-/// Modo padrão para arquivos desconhecidos
+/// Modo padrÃ£o para arquivos desconhecidos
 final Mode plainText = Mode(
   contains: [],
   illegal: null,
@@ -2474,12 +2474,12 @@ final Mode plainText = Mode(
 /// Detecta a linguagem pelo caminho do arquivo
 Mode getLanguageForPath(String path) {
   final ext = '.' + path.split('.').last.toLowerCase();
-  return languageMap[ext] ?? plainText; // retorna plainText se não encontrar
+  return languageMap[ext] ?? plainText; // retorna plainText se nÃ£o encontrar
 }
 
 
 --------------------------------------------------------------------------------
-20. Código: github_theme.dart
+20. CÃ³digo: github_theme.dart
 --------------------------------------------------------------------------------
 import 'package:flutter/material.dart';
 
@@ -2512,7 +2512,7 @@ final Map githubTheme = {
   'strong': const TextStyle(fontWeight: FontWeight.bold),
 };
 
-// Alias explícito, caso queira referenciar diretamente
+// Alias explÃ­cito, caso queira referenciar diretamente
 final Map githubDarkTheme = githubTheme;
 
 
@@ -2546,7 +2546,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.0.5  # para gerenciamento simples de estado
-  shared_preferences: ^2.1.1  # para salvar histórico localmente
+  shared_preferences: ^2.1.1  # para salvar histÃ³rico localmente
   flutter_code_editor: ^0.3.0
   http: ^1.5.0
   hive: ^2.2.3
@@ -2660,7 +2660,7 @@ mkide_ia/
                 1756273876420/
                 1756274612380/
             projeto_teste/
-                sessão_teste/
+                sessÃ£o_teste/
                     session.jsonl
                     session.meta.json
     history/
@@ -2689,7 +2689,7 @@ from core.context_manager import router as context_router
 from core.rag_indexer import router as rag_router
 from core.summarizer import router as summarizer_router
 
-app = FastAPI(title="MK IDE I.A — Backend")
+app = FastAPI(title="MK IDE I.A â€” Backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -2701,7 +2701,7 @@ app.include_router(session_router, prefix="/session", tags=["sessions"])
 app.include_router(context_router, prefix="/context", tags=["context"])
 app.include_router(rag_router, prefix="/rag", tags=["rag"])
 app.include_router(summarizer_router, prefix="/summarize", tags=["summarize"])
-app.include_router(adapter_router, prefix="", tags=["adapter"])  # mantém /v1/*
+app.include_router(adapter_router, prefix="", tags=["adapter"])  # mantÃ©m /v1/*
 
 @app.get("/")
 def root():
@@ -2754,7 +2754,7 @@ ADAPTER_PORT = int(os.getenv("ADAPTER_PORT", "5000"))
 logger = logging.getLogger("adapter")
 router = APIRouter()
 
-# import dos utilitários de sessão
+# import dos utilitÃ¡rios de sessÃ£o
 ROOT = os.getenv("MKIDE_ROOT", os.getcwd())
 sys.path.insert(0, os.path.join(ROOT, "utils"))
 from save_chat_log import append_message, ensure_session  # noqa
@@ -2769,7 +2769,7 @@ class ChatRequest(BaseModel):
     messages: Optional[List[Message]] = []
     stream: Optional[bool] = True
     delta_stream: Optional[bool] = False
-    # sessão
+    # sessÃ£o
     project_id: Optional[str] = "default"
     session_id: Optional[str] = None
 
@@ -2838,23 +2838,23 @@ async def v1_models():
             return {"object": "list", "data": parsed}
     except Exception as e:
         logger.exception("ollama list failed: %s", e)
-    raise HTTPException(status_code=500, detail="Não foi possível listar modelos.")
+    raise HTTPException(status_code=500, detail="NÃ£o foi possÃ­vel listar modelos.")
 
 @router.post("/v1/chat/completions")
 async def v1_chat(req: ChatRequest):
     model = (req.model or "").strip()
     if not model:
-        raise HTTPException(400, "Campo 'model' é obrigatório.")
+        raise HTTPException(400, "Campo 'model' Ã© obrigatÃ³rio.")
 
-    # sessão
+    # sessÃ£o
     project_id = req.project_id or "default"
     session_id = req.session_id
     if not session_id:
-        raise HTTPException(400, "Campo 'session_id' é obrigatório. Crie em /session/new.")
+        raise HTTPException(400, "Campo 'session_id' Ã© obrigatÃ³rio. Crie em /session/new.")
 
     ensure_session(project_id, session_id, model=model)
 
-    # apenda as mensagens do usuário no JSONL
+    # apenda as mensagens do usuÃ¡rio no JSONL
     for m in (req.messages or []):
         if m.role == "user":
             append_message(project_id, session_id, m.role, m.content, {"model": model, "phase": "received"})
@@ -2902,7 +2902,7 @@ async def v1_chat(req: ChatRequest):
         headers = {"Cache-Control": "no-cache", "Content-Type": "text/event-stream", "Connection": "keep-alive"}
         return StreamingResponse(sse_stream(), headers=headers, status_code=200)
 
-    # modo não-stream (retorno único)
+    # modo nÃ£o-stream (retorno Ãºnico)
     async with httpx.AsyncClient(timeout=120.0) as client:
         payload = {"model": model, "messages": [m.model_dump() for m in (req.messages or [])], "stream": False}
         r = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
@@ -2947,7 +2947,7 @@ def build_context(req: BuildContextReq):
     if req.system_prompt:
         messages.append({"role": "system", "content": req.system_prompt})
     if summary:
-        messages.append({"role": "system", "content": f"[RESUMO DA SESSÃO]\n{summary}"})
+        messages.append({"role": "system", "content": f"[RESUMO DA SESSÃƒO]\n{summary}"})
     if req.task:
         messages.append({"role": "system", "content": f"[TAREFA]\n{req.task}"})
     if req.rag_chunks:
@@ -2972,7 +2972,7 @@ class IndexReq(BaseModel):
 
 @router.post("/index")
 def index_project(req: IndexReq):
-    # v0: só varre e guarda lista básica (melhorar depois com embeddings)
+    # v0: sÃ³ varre e guarda lista bÃ¡sica (melhorar depois com embeddings)
     result = []
     for path in glob.glob(os.path.join(req.root_path, "**", "*"), recursive=True):
         if os.path.isfile(path) and os.path.getsize(path) < 2_000_000:
@@ -3162,7 +3162,7 @@ def ensure_session(project_id: str, session_id: str, title: str | None = None, m
         meta = {
             "project_id": project_id,
             "session_id": session_id,
-            "title": title or f"Sessão {session_id}",
+            "title": title or f"SessÃ£o {session_id}",
             "model": model or "",
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
