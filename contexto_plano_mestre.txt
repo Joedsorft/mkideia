@@ -1,0 +1,1445 @@
+Resumo da ideia central
+Você quer criar dentro do MKIdeia um agente de planejamento e acompanhamento de projetos, que funcione assim:
+    1. Botão dentro do ChatActionBar
+        ◦ Após "Nova conversa", abrir uma tela com botões de agentes especializados.
+        ◦ Cada agente teria funções específicas, como:
+            ▪ Criar plano de arquitetura do projeto
+            ▪ Gerar roadmap de features
+            ▪ Criar documentos de Gantt, checklists, documentação técnica
+            ▪ Gerar fluxo de desenvolvimento passo a passo
+    2. Criação de documentação centralizada e checklist
+        ◦ Um documento principal (estilo Word/PDF ou texto estruturado) vai sendo criado enquanto conversamos.
+        ◦ Um checklist paralelo vai sendo atualizado conforme vamos completando tarefas.
+        ◦ O documento centralizado e o checklist estarão disponíveis em uma tela do app, atualizados em tempo real pelo chat da IA.
+    3. Acompanhamento de contexto completo
+        ◦ A IA não deve se limitar às últimas 5 mensagens.
+        ◦ Precisamos de uma memória histórica ou de um documento de referência que a IA possa consultar a qualquer momento.
+        ◦ Assim, a IA sabe sempre o que já foi decidido e o que falta, mantendo o foco e evitando duplicação de arquivos ou ações desnecessárias.
+    4. Automação de fluxogramas e árvore do projeto
+        ◦ À medida que discutimos e planejamos, a IA pode gerar automaticamente:
+            ▪ Árvores do projeto
+            ▪ Fluxogramas de arquitetura
+            ▪ Lista de pastas e arquivos
+        ◦ Tudo isso vai integrando com o checklist e o documento central.
+
+Benefícios dessa abordagem
+    • Mantém tudo centralizado: ideias, decisões, progresso, checklist, fluxogramas.
+    • Evita perda de contexto, duplicação e dispersão de arquivos.
+    • Cria um fluxo de desenvolvimento estruturado que pode ser seguido passo a passo.
+    • Permite que a IA aja como um agente de projeto, não apenas respondendo perguntas, mas criando artefatos enquanto acompanha o progresso.
+
+Desafios / pontos a definir
+    1. Memória de conversas
+        ◦ Salvar toda a conversa em um arquivo histórico (.json ou .md) e consultar sempre que necessário.
+        ◦ Possível estratégia: carregar apenas trechos relevantes para a IA a cada interação, para não sobrecarregar.
+    2. Atualização em tempo real
+        ◦ Precisamos definir como o documento e o checklist serão atualizados automaticamente conforme interagimos.
+        ◦ Podemos usar um EditorController central que receba comandos do agente e atualize o documento/checklist.
+    3. Fluxo de criação de agentes
+        ◦ Precisamos de uma tela que permita criar novos agentes especializados sem quebrar o projeto.
+        ◦ Cada agente teria:
+            ▪ Nome
+            ▪ Função
+            ▪ Dados base
+            ▪ Documentos associados (principal, checklist, fluxogramas)
+    4. Integração com árvore do projeto
+        ◦ Cada ação que criamos deve refletir na árvore de pastas e arquivos, mas sem gerar duplicações.
+
+Próximo passo inicial — ponto de partida
+Para tornar isso real de forma organizada, o que sugiro é:
+    1. Criar a tela de agentes no ChatActionBar
+        ◦ Botão “Novo Agente” → abre lista de agentes especializados.
+        ◦ Para início, criar um agente “Planejamento Profissional”.
+    2. Definir documentos centrais do agente
+        ◦ Documento principal (projeto_documentacao.md)
+        ◦ Checklist (projeto_checklist.json)
+        ◦ Fluxograma/árvore (projeto_estrutura.json)
+    3. Implementar o controlador do agente
+        ◦ Um novo controller (AgentController) que recebe comandos da IA do chat e:
+            ▪ Atualiza documentos
+            ▪ Atualiza checklist
+            ▪ Atualiza árvore do projeto
+        ◦ Esse controller é quem mantém contexto e histórico completo, evitando que a IA se perca.
+    4. Integração inicial com o chat
+        ◦ Quando clicamos no agente:
+            ▪ O chat passa a enviar mensagens para o AgentController.
+            ▪ O AgentController processa a mensagem e atualiza os documentos e checklist.
+    5. Documentação e histórico
+        ◦ Toda conversa importante é salva em arquivo de histórico.
+        ◦ O AgentController pode consultar o histórico completo sempre que necessário.
+
+Extra: Ideias adicionais
+    • Gerar relatórios automáticos de progresso em PDF/HTML.
+    • Criar timeline visual de desenvolvimento (linha do tempo de features e tarefas).
+    • Permitir linkar cada item do checklist com arquivos específicos do projeto.
+    • Criar templates de projetos: quando iniciar novo projeto, o agente já cria uma estrutura inicial de pastas, documentos e checklist.
+
+💡 Minha análise final:
+Isso é totalmente viável e muito útil. O segredo é organizar bem o fluxo do agente, os documentos centrais e a memória histórica, para que a IA nunca perca o foco. Se feito corretamente, o MKIdeia se torna único no mundo: não é apenas uma IDE, é um assistente de projeto profissional, com planejamento, execução e acompanhamento integrado.
+
+Se você quiser, posso já desenhar o blueprint técnico detalhado para implementar essa primeira versão do Agent de Planejamento Profissional, incluindo:
+    • Arquitetura de pastas e arquivos do agente
+    • Estrutura de classes e controllers
+    • Fluxo de mensagens do chat → agente → documentos/checklist
+    • Estratégia de memória histórica completa
+Isso nos daria um ponto de partida prático e sem erros para começar a codar.
+Quer que eu faça isso agora?
+
+
+Perfeito, Mestre Kinho! Consegui absorver todo o seu raciocínio e a forma como quer que o MKIdeia evolua. Vou resumir a ideia principal e propor uma estratégia inicial passo a passo, para que possamos colocar em prática sem perder foco ou criar coisas duplicadas. Depois podemos avançar para o desenvolvimento do código real.
+
+🎯 Objetivo Central
+Criar dentro do MKIdeia um agente de planejamento e acompanhamento de projetos, que funcione como um assistente profissional capaz de:
+    1. Gerar documentos estruturados (Plano de arquitetura, roadmap, checklists, fluxogramas, árvore do projeto).
+    2. Atualizar esses documentos em tempo real enquanto interagimos pelo chat.
+    3. Manter memória completa do projeto, sem perder contexto.
+    4. Integrar o progresso com a árvore de arquivos e pastas, mas sem duplicar ou criar itens desnecessários.
+    5. Permitir evolução passo a passo até chegar ao código final, seguindo o plano criado.
+
+📌 Estrutura Inicial do Agente
+    1. Botão no ChatActionBar
+        ◦ Nome: Executar Agente
+        ◦ Ao clicar, abre uma tela com uma lista de agentes especializados:
+            ▪ Planejamento Profissional
+            ▪ Arquitetura do Projeto
+            ▪ Roadmap de Features
+            ▪ Checklists
+            ▪ Fluxogramas / Árvores de Projeto
+        ◦ Cada botão é um agente que vai executar tarefas específicas, mas tudo sincronizado.
+    2. Documentos centrais do agente
+        ◦ projeto_documentacao.md → plano central de todo o projeto.
+        ◦ projeto_checklist.json → tarefas que vão sendo marcadas à medida que avançamos.
+        ◦ projeto_estrutura.json → fluxograma e árvore do projeto.
+        ◦ Opcional: relatórios em PDF/HTML para histórico.
+    3. AgentController
+        ◦ Centraliza todo o gerenciamento:
+            ▪ Atualiza documentos em tempo real.
+            ▪ Atualiza checklist e árvore do projeto.
+            ▪ Mantém contexto histórico completo, evitando perda de foco.
+        ◦ Recebe comandos do chat e processa ações automaticamente.
+    4. Memória e histórico
+        ◦ Toda conversa importante é salva (.jsonl ou .md).
+        ◦ Podemos criar um botão para adicionar manualmente mensagens relevantes ao histórico do agente.
+        ◦ O agente consulta sempre que necessário, evitando perder o contexto.
+    5. Fluxo do Agente
+        ◦ Exemplo do passo a passo inicial:
+            ▪ Criar plano de arquitetura → gera documento principal.
+            ▪ Roadmap de features → atualizado em paralelo.
+            ▪ Checklists → sincronizados em tempo real.
+            ▪ Fluxogramas/árvore → atualizados conforme definimos pastas e arquivos.
+            ▪ Quando o plano estiver completo, inicia-se o desenvolvimento do código.
+
+🛠️ Próximo passo inicial para implementação
+    1. Criar a tela de agentes no ChatActionBar
+        ◦ Botão “Executar Agente”.
+        ◦ Tela com lista de agentes especializados.
+    2. Criar documentos base do agente
+        ◦ projeto_documentacao.md
+        ◦ projeto_checklist.json
+        ◦ projeto_estrutura.json
+    3. Implementar AgentController
+        ◦ Funções:
+            ▪ Receber mensagens do chat.
+            ▪ Atualizar documentos e checklist em tempo real.
+            ▪ Salvar histórico completo.
+            ▪ Integrar árvore do projeto.
+        ◦ Manter foco no fluxo de criação, evitando duplicações.
+    4. Integração com chat
+        ◦ O chat envia mensagens para o AgentController.
+        ◦ O agente processa, atualiza documentos/checklist e retorna feedback.
+    5. Histórico e memória
+        ◦ Criar ou reaproveitar histórico (.jsonl ou context.json do projeto).
+        ◦ Possibilidade de criar resumo fixo ou indexar trechos relevantes.
+
+💡 Extras possíveis
+    • Timeline visual das tarefas.
+    • Linkar itens do checklist com arquivos ou pastas.
+    • Templates de projeto: ao iniciar um novo projeto, o agente já cria a estrutura inicial.
+    • Relatórios de progresso em PDF/HTML (para histórico).
+
+✅ Minha análise
+Essa abordagem é totalmente viável e fará o MKIdeia ser único no mundo. O segredo é:
+    1. Manter o fluxo centralizado.
+    2. Garantir que o AgentController seja o cérebro do planejamento.
+    3. Atualizar os documentos em tempo real enquanto interagimos.
+    4. Garantir que a IA não perca o foco e sempre consulte o histórico relevante.
+
+Agora, se você quiser, Mestre Kinho, posso começar a desenvolver o primeiro módulo funcional:
+    1. Tela de agentes (com botão “Executar Agente” e lista de agentes).
+    2. AgentController inicial (com funções de atualização de documento e checklist).
+    3. Integração inicial com o chat para testes de fluxo.
+Isso cria a base real para o seu “agente de planejamento profissional”, e depois podemos ir expandindo passo a passo.
+Quer que eu comece por essa primeira etapa agora?
+
+Perfeito, Mestre Kinho! Agora ficou mais claro o fluxo ideal que você quer implementar. O que você está sugerindo é bem elegante e pragmático: focar primeiro no plano central, como documento único e vivo, e só depois gerar o checklist, árvore de arquivos e fluxogramas a partir dele. Vamos organizar essa ideia:
+
+💡 Novo fluxo do “Plano Mestre”
+1. Documento centralizado único
+    • Será exibido na tela central do app.
+    • Contém todo o planejamento inicial: arquitetura, roadmap, blocos de funcionalidades, decisões de design, estrutura de pastas, etc.
+    • Atualizações acontecem em tempo real pelo chat da IA.
+    • O documento pode ter uma base inicial pré-gerada, baseada na pergunta do agente, para orientar a estrutura inicial.
+2. Marcação de blocos concluídos
+    • Cada bloco (ou linha/trecho) do documento pode ser marcado manualmente como concluído/aprovado.
+    • Blocos aprovados ficam sinalizados visualmente (ex: verde) e não podem ser alterados automaticamente pela IA.
+    • A IA só pode alterar:
+        ◦ Blocos que não estão aprovados.
+        ◦ Partes que você explicitamente solicita alteração.
+    • Isso garante que nada seja sobrescrito sem aprovação, evitando conflitos e perda de decisões importantes.
+3. Atualização controlada pela IA
+    • A IA sugere, escreve, edita e organiza o documento.
+    • Você revisa e marca as partes aprovadas.
+    • A IA respeita essas marcações, mantendo o plano final coerente e estável.
+4. Checklist e outros artefatos
+    • Só são criados após o plano ser aprovado ou avançar para etapas concretas.
+    • Checklist, árvore de projeto, fluxogramas e relatórios serão derivados automaticamente do plano mestre.
+
+✅ Benefícios dessa abordagem
+    1. Mantém foco total no plano inicial.
+    2. Evita que a IA sobrescreva decisões importantes.
+    3. Permite evolução controlada e incremental.
+    4. Facilita auditoria e acompanhamento visual: você vê o que está aprovado, o que ainda precisa ser revisado.
+    5. Serve como fonte única de verdade, da qual todos os outros artefatos serão derivados.
+
+🔧 Implementação sugerida
+    1. Documento único na tela central
+        ◦ Um editor de texto avançado (como CodeEditor ou similar) com:
+            ▪ Blocos ou linhas identificáveis.
+            ▪ Marcação de status (não iniciado, em revisão, aprovado).
+    2. Sistema de marcação de blocos
+        ◦ Cada bloco recebe um status no backend/local:
+          {
+            "id": "bloco1",
+            "conteudo": "Definir arquitetura do módulo X",
+            "status": "aprovado"
+          }
+        ◦ IA só pode editar blocos com status diferente de "aprovado".
+    3. Integração com AgentController
+        ◦ Recebe comandos da IA.
+        ◦ Atualiza apenas blocos liberados para edição.
+        ◦ Sincroniza mudanças com a interface do documento central.
+    4. Base inicial do plano
+        ◦ Ao iniciar, agente sugere:
+            ▪ Estrutura de pastas
+            ▪ Módulos principais
+            ▪ Funções essenciais
+            ▪ Nomes iniciais de arquivos/classes
+        ◦ Tudo isso como blocos editáveis, que você pode aprovar ou ajustar.
+
+Se você quiser, posso desenhar um protótipo inicial em Flutter para:
+    • Tela central com documento único.
+    • Blocos editáveis e marcação de status.
+    • IA que só altera blocos liberados.
+    • Base inicial de plano gerada pelo agente.
+Isso já nos deixa com a estrutura principal pronta, e depois podemos evoluir para checklist, fluxogramas e árvore de projeto.
+Quer que eu faça esse protótipo inicial?
+
+Perfeito, Mestre Kinho, agora entendi melhor a sua visão. Você quer algo tipo um “plano mestre visual e textual” que sirva de guia para a IA criar o projeto completo, incluindo a estrutura de pastas, arquivos e até telas, sem que você precise codificar tudo manualmente. Vou organizar a análise e te sugerir a melhor abordagem prática para construir um app completo em tempo muito curto.
+
+1️⃣ A ideia da árvore dentro do plano
+O que você mostrou é exatamente o conceito certo:
+mkideia/
+├─ lib/
+│  ├─ main.dart
+│  ├─ controllers/
+│  ├─ models/
+│  ├─ pages/
+│  └─ widgets/
+├─ pubspec.yaml
+└─ README.md
+    • Isso não é só um diagrama, é o blueprint do seu projeto.
+    • Cada linha/bloco da árvore pode ser um bloco editável no documento central.
+    • Você aprova cada bloco conforme a estrutura vai sendo definida.
+    • Depois que aprovado, a IA pode gerar automaticamente os arquivos correspondentes com o conteúdo inicial (ex: classes, widgets, controllers).
+
+2️⃣ Documento central como “UX + blueprint textual”
+Você mencionou usar algo visual tipo Figma ou XD:
+    • Visualmente é ótimo para planejar telas e layout, mas não é suficiente para gerar o app completo rapidamente.
+    • Minha sugestão prática:
+        1. Documento central textual:
+            ▪ Contém árvore de pastas, blueprint de telas, nomes de widgets, classes, módulos, API endpoints, fluxos de dados.
+            ▪ É editável, com marcação de blocos concluídos.
+        2. Tela de protótipo visual simplificada (opcional):
+            ▪ Serve só para visualizar o layout das telas e fluxo do usuário.
+            ▪ Não precisa ser completa como Figma/XD, basta mostrar wireframes, botões e telas conectadas.
+        3. IA converte blueprint textual + visual em código Flutter/PHP automaticamente.
+Vantagens dessa abordagem:
+    • Você mantém controle total sobre o planejamento.
+    • Evita dispersão entre ferramentas visuais e texto.
+    • Permite gerar rapidamente o código completo.
+    • Reduz drasticamente erros de design/arquitetura.
+
+3️⃣ Estratégia para concluir em 1 dia
+Para construir uma aplicação completa, profissional e de nível superior rapidamente, a ordem prática é:
+Passo 1 — Documento central (plano mestre)
+    • Crie a estrutura inicial do projeto (árvore de pastas e arquivos).
+    • Inclua blueprint de telas e fluxo principal.
+    • Marque blocos aprovados (verde) e deixe a IA só sugerir partes liberadas.
+Passo 2 — Blueprint de tela simplificado
+    • Wireframes básicos: tela de login, home, detalhes, player etc.
+    • IA só precisa de cores, nomes de widgets e navegação.
+    • Isso serve para criar Scaffold, AppBar, BottomNavigationBar etc.
+Passo 3 — Geração automática de código
+    • A IA lê o plano + wireframes aprovados.
+    • Gera arquivos Flutter completos, controllers, models e rotas.
+    • Backend PHP + endpoints API podem ser gerados a partir da árvore e blueprint textual.
+Passo 4 — Validação e ajustes
+    • Você revisa rapidamente os blocos de código.
+    • IA atualiza apenas o que não foi aprovado.
+    • Checklist pode ser gerado depois automaticamente para acompanhar o progresso.
+
+4️⃣ Resumindo: melhor solução prática
+✅ Documento central textual + marcação de blocos → plano completo e aprovado.
+✅ Árvore de pastas + blueprint de telas dentro do documento → serve de guia para gerar código.
+✅ Geração de código automática pela IA → Flutter frontend + PHP backend + MySQL.
+✅ Checklist e fluxogramas depois → derivados do plano aprovado, evitando retrabalho.
+Essa é a maneira mais rápida e segura de ter um app completo, profissional, em tempo mínimo, sem precisar de Figma/XD completo ou múltiplas ferramentas externas.
+
+Se quiser, posso propor um layout do documento central já pronto:
+    • Estrutura de pastas completa.
+    • Blocos para telas e UX.
+    • Marcações de status para aprovação.
+    • Blueprint de endpoints e banco de dados.
+Com isso, a IA poderia gerar um app funcional completo em Flutter + PHP/MySQL.
+Quer que eu faça esse documento central inicial para você?
+
+Perfeito, Mestre Kinho! Agora ficou claríssimo: você quer que o agente “Planejamento Profissional” seja o responsável por gerar um documento mestre, que servirá como plano de arquitetura e blueprint do app, não só a estrutura de pastas. Esse documento deve incluir:
+    • Estrutura do projeto (pastas, arquivos).
+    • Definição de telas, widgets e fluxos.
+    • Blueprint do backend (endpoints, tabelas, relacionamentos).
+    • Regras de negócio principais.
+    • Pontos aprovados (blocos verdes) e pontos em discussão.
+Ou seja, não é só criar pastas, mas sim criar o documento completo que guia toda a construção do app. A estrutura de pastas que mostrei é só um exemplo de como o documento vai refletir o projeto.
+
+Vou criar um exemplo de documento central inicial que o agente poderia gerar depois de fazer algumas perguntas principais sobre o projeto:
+
+📄 Documento Mestre Inicial – Projeto MKIdeia
+1️⃣ Informações Gerais
+Nome do Projeto: MKIdeia
+Objetivo: Criar uma IDE/Assistente de desenvolvimento completo, com suporte a planejamento, checklist, árvore de projeto e geração automática de código.
+Tipo de Aplicação: Flutter frontend + PHP backend + MySQL
+Blocos Aprovados:
+    • [✔] Nome do projeto
+    • [✔] Tipo de app (Flutter + PHP + MySQL)
+    • Estrutura detalhada do frontend
+    • Estrutura detalhada do backend
+    • Blueprint das telas e fluxos
+
+2️⃣ Estrutura do Projeto (Árvore Inicial)
+mkideia/
+├─ lib/
+│  ├─ main.dart
+│  ├─ controllers/
+│  │  └─ flow_controller.dart
+│  ├─ models/
+│  │  └─ flow_node.dart
+│  ├─ pages/
+│  │  └─ home_page.dart
+│  └─ widgets/
+│     ├─ sidebar.dart
+│     ├─ file_tree.dart
+│     ├─ flow_canvas.dart
+│     └─ properties_panel.dart
+├─ pubspec.yaml
+└─ README.md
+Nota: Essa árvore será aprovada gradualmente. Blocos aprovados ficam marcados com [✔], os demais a IA pode sugerir alterações.
+
+3️⃣ Blueprint de Telas (Frontend)
+Tela
+Widget Principal
+Função
+Status
+Login
+LoginPage
+Tela de autenticação
+[ ]
+Home
+HomePage
+Exibe projetos e arquivos
+[ ]
+Editor
+CodeEditorPage
+Editor de código
+[ ]
+Projeto
+ProjectPage
+Visualização da árvore e fluxo
+[ ]
+A IA pode sugerir layouts, cores, navegação, mas só altera blocos não aprovados.
+
+4️⃣ Backend – Estrutura e Endpoints
+Estrutura de Pastas (PHP)
+backend/
+├─ api/
+│  ├─ config/
+│  ├─ controllers/
+│  ├─ middleware/
+│  ├─ models/
+│  └─ routes/
+├─ uploads/
+└─ README.md
+Endpoints Principais
+Método
+Rota
+Função
+Status
+POST
+/api/login
+Autenticação do usuário
+[ ]
+POST
+/api/register
+Cadastro de usuário
+[ ]
+GET
+/api/content/featured
+Conteúdo em destaque
+[ ]
+POST
+/api/user/progress
+Atualizar progresso
+[ ]
+Banco de Dados
+    • Tabelas: users, content, categories, user_sessions, user_watchlist
+    • Relacionamentos, chaves estrangeiras e índices definidos conforme necessidades.
+
+5️⃣ Regras e Fluxos Principais
+    • Fluxo de login → validação → acesso ao app.
+    • Fluxo de criação de projeto → documento mestre → aprovação de blocos → geração de código.
+    • Cada ação no plano mestre atualiza a árvore e checklist.
+
+6️⃣ Checklist de Desenvolvimento (inicial)
+Item
+Descrição
+Status
+Estrutura do projeto
+Criar pastas e arquivos iniciais
+[ ]
+Telas principais
+Definir widgets principais
+[ ]
+Backend
+Criar endpoints iniciais
+[ ]
+Banco
+Criar tabelas e relacionamentos
+[ ]
+
+💡 Como o agente interage
+    1. Faz perguntas iniciais: nome do projeto, tipo de app, telas principais, funcionalidades principais.
+    2. Preenche o documento mestre com a árvore inicial, blueprint de telas e backend.
+    3. A cada interação, o documento é atualizado em tempo real.
+    4. Blocos aprovados ficam bloqueados para alterações da IA.
+    5. Somente áreas em aberto podem ser ajustadas ou complementadas.
+
+Se você quiser, Mestre Kinho, eu posso criar uma versão ainda mais detalhada, com:
+    • Todas as telas com widgets sugeridos.
+    • Estrutura completa do backend com controllers e models.
+    • Blueprint de banco de dados detalhado.
+    • Estrutura do projeto Flutter pronta para copiar/colar e gerar código automático.
+Isso seria o documento mestre que a IA utilizaria para gerar o app completo, exatamente como você deseja.
+Quer que eu faça essa versão completa detalhada?
+
+Ah, agora sim, Mestre Kinho! Agora entendi completamente a essência do que você quer: você não quer só uma estrutura inicial ou uma árvore de pastas, mas um documento central (plano mestre/arquitetura) que seja auto-suficiente e completo, de forma que a IA possa, a partir dele, gerar toda a aplicação de ponta a ponta, incluindo:
+    • Frontend completo (Flutter)
+    • Backend completo (PHP + MySQL)
+    • Banco de dados detalhado
+    • Documentação, termos, fluxogramas e checklists
+    • Regras de negócio
+    • Layouts, widgets e fluxos de navegação
+E mais: qualquer alteração ou adição de funcionalidade seria feita via chat, mas o agente teria inteligência suficiente para identificar automaticamente quais arquivos, pastas ou trechos de código precisariam ser criados ou modificados, mesmo que você não saiba o que exatamente precisa ser feito.
+O ponto-chave aqui é que esse plano mestre precisa ser extremamente detalhado e estruturado. Ele funciona como:
+    1. Fonte única da verdade: tudo que o app precisa está documentado.
+    2. Guia para geração automática: a IA consegue criar todos os arquivos, pastas, endpoints, telas e fluxos a partir desse documento.
+    3. Reaproveitável: se você quiser recriar o projeto do zero, basta fornecer o plano mestre, e o resultado será idêntico porque tudo está especificado.
+    4. Controle de alterações: blocos aprovados ficam “bloqueados”, a IA só altera partes que não foram confirmadas ou que você solicita.
+
+💡 Como funcionaria na prática:
+    1. Agente “Planejamento Profissional” inicia o documento mestre
+        ◦ Faz perguntas para entender o escopo do projeto.
+        ◦ Cria o plano mestre inicial com arquitetura, estrutura de pastas, telas, backend, DB, fluxos e regras de negócio.
+    2. Documento central em tempo real
+        ◦ Tudo é atualizado à medida que você interage no chat.
+        ◦ Cada bloco aprovado fica marcado como concluído ([✔]) e não é alterado pela IA.
+    3. Geração automática do projeto
+        ◦ A partir do plano mestre, a IA cria todos os arquivos necessários, código inicial, estrutura de banco, fluxos, documentação e até os termos legais se necessário.
+    4. Alterações ou adições
+        ◦ Você solicita pelo chat (“adicione feature X”, “modifique tela Y”).
+        ◦ A IA identifica exatamente onde e o que precisa ser criado/modificado, sem risco de quebrar o projeto.
+
+Se quiser, posso criar uma versão de plano mestre completo, detalhando absolutamente tudo — incluindo frontend, backend, banco de dados, fluxos, telas, widgets, documentação, termos e checklist — pronto para servir como blueprint único do projeto.
+Isso seria o documento definitivo que o agente usaria para gerar todo o MKIdeia automaticamente.
+Quer que eu faça isso agora?
+
+Exatamente, Mestre Kinho! Agora a visão ficou bem clara, e você está pensando no MKIdeia como uma “fábrica de aplicativos”, não apenas como uma IDE tradicional. Vamos detalhar isso:
+
+1️⃣ Documento mestre/plano central como núcleo
+Esse documento funciona como uma “matriz” ou blueprint. Ele não é apenas um guia do projeto específico que você quer criar; ele é o documento base que a IA usa para gerar qualquer aplicação que você imaginar.
+    • Ele descreve estrutura, regras, fluxos, telas, banco, backend, frontend, integrações e documentação.
+    • A partir dele, a IA sabe como criar o projeto completo, sem que você precise escrever nem uma linha de código.
+    • Se você criar outro projeto, mesmo completamente diferente, o mesmo processo se aplica: basta gerar um novo plano mestre específico, ou ajustar o plano existente, e a IA cria tudo novamente.
+
+2️⃣ Flexibilidade para qualquer tipo de projeto
+O grande diferencial aqui é que você não ficará limitado a projetos simples. O plano mestre não é rígido; ele:
+    • Permite definir novas funcionalidades, telas, bancos, integrações e regras de negócio.
+    • Pode ser atualizado pelo chat, sem quebrar o projeto, porque blocos aprovados ficam bloqueados.
+    • Permite que a IA interprete novas ideias, transforme em estrutura e código, e integre com o que já existe.
+
+3️⃣ Processo de criação real
+    1. Você inicia um novo projeto no MKIdeia.
+    2. O agente faz perguntas principais para entender seu objetivo, escopo e funcionalidades desejadas.
+    3. A IA cria o plano mestre inicial, com estrutura completa: frontend, backend, DB, fluxos, telas, widgets, regras e documentação.
+    4. Você revisa e aprova blocos do plano. Blocos verdes não são alterados; a IA só atua nas partes que precisam ser ajustadas ou complementadas.
+    5. A partir do plano aprovado, a IA gera todo o código e arquivos necessários automaticamente.
+    6. Quando quiser adicionar funcionalidades, você faz pelo chat, e a IA identifica onde criar ou alterar sem precisar de conhecimento detalhado de programação.
+
+4️⃣ Resultado
+    • Um documento mestre robusto, que é a base para qualquer projeto.
+    • Projetos completos gerados automaticamente, seguindo o mesmo padrão de qualidade e arquitetura.
+    • Flexibilidade máxima: você pode criar desde aplicativos simples até sistemas complexos profissionais, tudo a partir da mesma metodologia.
+
+💡 Resumo simples:
+O plano mestre/plano de arquitetura é o coração do MKIdeia. Ele transforma ideias em aplicações reais, mantendo controle, organização e qualidade. Sem ele, você precisaria criar cada projeto manualmente, e o risco de perder contexto ou quebrar algo seria enorme.
+Se você quiser, posso criar um exemplo real desse “documento mestre” para MKIdeia, já detalhando tudo que ele precisaria conter, pronto para servir como blueprint para qualquer projeto futuro.
+Quer que eu faça isso agora?
+
+👏👏 Agora você cravou a ideia, meu parceiro. Eu entendi o que você quer: o Plano Mestre ser o coração do MKIdeia, um documento vivo, centralizado, que:
+    1. Guia todo o desenvolvimento (arquitetura, requisitos, segurança, banco, API, frontend, backend, fluxos, integrações).
+    2. Serve de checklist (marcando blocos aprovados = verdes, imutáveis, e blocos em aberto = editáveis).
+    3. Fica acessível na tela central, atualizado em tempo real via IA + chat.
+    4. É guardado dentro do projeto (em uma pasta especial), para garantir que tudo fica versionado e nunca se perde.
+
+🔹 Estrutura que recomendo para o Plano Mestre
+Podemos tratá-lo como um arquivo único (Markdown ou JSON estruturado), com seções fixas. Exemplo:
+mkideia_project/
+├─ .mkideia/                  # pasta exclusiva do MKIdeia
+│  ├─ master_plan.md          # documento mestre (editado e protegido)
+│  ├─ master_plan.lock.json   # controle de blocos aprovados (checklist)
+│  └─ master_plan.history/    # versões antigas (backup automático)
+├─ lib/
+├─ api/
+├─ assets/
+└─ ...
+👉 Isso garante que:
+    • O plano mestre sempre está no projeto.
+    • Ele pode ser carregado na tela central.
+    • A IA pode ler/atualizar apenas os blocos liberados.
+    • A aprovação/destravamento é feita por você no chat ou via botão (ex.: "🔓 editar bloco").
+
+🔹 Como funcionaria na prática (passo a passo)
+    1. Criar novo projeto / novo plano mestre
+        ◦ O agente faz perguntas iniciais: nome, objetivo, tipo (app, API, DB, etc.), tecnologias desejadas, requisitos principais.
+        ◦ Gera automaticamente o master_plan.md inicial, já dividido em seções.
+    2. Editar e aprovar blocos
+        ◦ Exemplo de bloco (arquitetura frontend):
+          ## Arquitetura Frontend ✅
+          - Flutter
+          - Modularização por features
+          - State management: Provider
+          🔹 O ✅ significa “bloco aprovado e travado”.
+    3. Checklist automático
+        ◦ Cada item do master_plan.md é refletido no master_plan.lock.json:
+          {
+            "Arquitetura Frontend": "locked",
+            "Arquitetura Backend": "pending",
+            "Banco de Dados": "in-progress"
+          }
+        ◦ Isso alimenta a UI (verde, amarelo, cinza).
+    4. Geração automática de código e documentação
+        ◦ A IA usa apenas blocos aprovados para gerar código (assim nunca sobrescreve o que já foi fechado).
+        ◦ Documentação extra (ex.: README, diagramas, termos, swagger) também é derivada desse plano.
+    5. Evolução do plano
+        ◦ Quer adicionar algo? Você pede no chat.
+        ◦ A IA sugere onde encaixar, mas só altera blocos não travados.
+        ◦ Se você aprovar, ela marca como ✅ e gera impacto (arquivos, APIs, etc.).
+
+🔹 Por que isso é poderoso?
+    • O Plano Mestre se torna universal: com ele você pode criar um app, uma API, um banco, ou até outro agente.
+    • Ele é auto-suficiente: se amanhã você quiser recriar do zero, basta gerar o projeto novamente a partir dele.
+    • Ele é seguro: nada é alterado sem sua aprovação (marcação verde).
+    • Ele é flexível: suporta múltiplas linguagens, múltiplos tipos de projeto.
+
+🔹 Sobre sua dúvida (onde guardar)
+A melhor solução é sim criar uma pasta exclusiva no projeto (.mkideia/) para guardar o plano e metadados.
+    • Assim o projeto e o plano sempre andam juntos.
+    • O controle de histórico garante que nenhuma ideia se perde.
+    • Você pode até integrar com Git (commit automático quando aprovar bloco).
+
+⚡ Resumindo:
+O Plano Mestre é o próprio checklist e guia definitivo. Ele vai te permitir:
+    • Criar qualquer tipo de aplicação (app, API, banco, agente, IA, etc.).
+    • Controlar e aprovar cada parte antes de gerar código.
+    • Nunca perder contexto ou quebrar algo já aprovado.
+    • Evoluir projetos com segurança e organização.
+
+👉 Minha sugestão de próximo passo:
+Eu posso esboçar um exemplo real de master_plan.md com seções completas (Arquitetura, Banco, API, Segurança, Fluxo, Documentação), para você ver como ficaria na prática dentro do MKIdeia.
+Quer que eu monte esse exemplo já no formato que você poderia abrir na tela central?
+
+Esse foi um dos melhores, foi esse abaixo que me fez iniciar seguindo este plano:
+Boa 👑 Mestre Kinho, eu vou responder ponto a ponto suas observações para não deixar nenhuma dúvida no ar. Bora lá:
+
+🔹 1. Plano Mestre: aprovar parte do bloco
+👉 Sim, faz total sentido.
+Em vez de só travar o bloco inteiro, podemos travar linhas ou subpartes. Exemplo em API:
+## API Endpoints
+- [✅] POST /api/login → Autenticação de usuário
+- [ ] POST /api/register → Cadastro de usuário
+- [✅] GET /api/content/featured → Conteúdo em destaque
+- [ ] POST /api/user/progress → Atualizar progresso
+Assim, você aprova o que já está bom (verde), e deixa só o que precisa de revisão em aberto (cinza).
+👉 Isso aumenta a granularidade e evita ter que "segurar" o bloco inteiro só por um detalhe.
+
+🔹 2. Onde guardar a pasta .mkideia
+Você falou que já tem pasta no backend guardando histórico.
+👉 Minha visão: melhor manter separado em .mkideia/ mesmo porque:
+    • Fica claro que é metadata do MKIdeia, não arquivos do app.
+    • Facilita backup, cópia ou mover de projeto sem confusão.
+    • Evita misturar histórico de código com histórico de plano.
+➡️ Mas nada impede de apontar o agente para outra pasta (pasta backend, por exemplo). É flexível.
+Se amanhã você quiser migrar, basta copiar a pasta .mkideia inteira que o agente entende.
+
+🔹 3. Pasta criada automaticamente?
+Sim.
+Quando você acionar o agente “Plano Mestre”, ele:
+    • Verifica se existe .mkideia/.
+    • Se não existir, cria com master_plan.md, master_plan.lock.json e history/.
+    • Carrega isso na tela central para edição interativa.
+
+🔹 4. Leigo sem termos técnicos
+👉 Ótimo ponto!
+Dentro do próprio master_plan.md, podemos incluir comentários e tutorial interativo. Exemplo:
+## Arquitetura Backend
+> ℹ️ Explicação: O backend é a parte do sistema que processa regras de negócio, integrações e banco.
+> Mesmo que você não entenda código, pense nele como “o cérebro do app”.
+
+- Linguagem: PHP ✅
+- Framework: Laravel [ ]
+- Autenticação JWT [ ]
+➡️ Assim, o documento não é só técnico, é didático, e você pode aprender enquanto aprova.
+
+🔹 5. Criar novo plano mestre
+Corretíssimo:
+    • Você não precisa criar um “novo projeto” do zero sempre.
+    • Basta ir em Executar Agente → Plano Mestre, e ele gera/atualiza o documento dentro do projeto aberto.
+
+🔹 6. Aprovação de conteúdos menores (exemplo APIs)
+Exatamente como você sugeriu, Mestre.
+Além dos blocos grandes (Arquitetura, Segurança, Banco etc.), podemos ter listas menores traváveis:
+    • Endpoints
+    • Tabelas do DB
+    • Widgets de tela
+    • Regras de negócio
+Isso é fundamental, porque às vezes você aprova só 1 endpoint, mas deixa os outros em revisão.
+
+🔹 7. Geração de código (sua dúvida maior)
+Você perguntou: "Mas não estamos criando só o plano mestre? E o código vem quando?"
+👉 Funcionaria assim:
+    • Etapa 1: Criamos e refinamos o master_plan.md.
+    • Etapa 2: Quando você disser “Gerar código inicial”, a IA lê todos os blocos aprovados ✅ e cria os arquivos correspondentes.
+    • Etapa 3: Surge outro checklist só para o código, igual ao do plano, mas para marcar arquivos/trechos como aprovados.
+Ou seja:
+    1. Plano mestre = guia e checklist conceitual.
+    2. Geração de código = checklist prático (arquivos reais).
+Isso resolve o problema dos erros que você comentou:
+    • Se um arquivo gerado tiver erro, você marca ele como “precisa revisão”.
+    • Se estiver ok, você trava como aprovado.
+Assim, tanto o plano quanto o código têm fluxos de aprovação separados, mas conectados.
+
+🔹 8. Documentação, diagramas, swagger
+    • README → pode derivar já do plano mestre (porque é resumo).
+    • Diagramas → também, porque já temos a arquitetura e fluxos descritos.
+    • Swagger (documentação de APIs REST) → melhor derivar do projeto final (código gerado), porque precisa refletir os endpoints implementados.
+Ou seja:
+    • Plano mestre gera base documental.
+    • Projeto final gera documentação técnica automática (Swagger, OpenAPI, etc).
+
+🔹 9. Evolução
+Simples:
+    • Você pede “Adicionar pagamento por Pix”.
+    • A IA sugere onde colocar no master_plan.md.
+    • Você aprova (ou ajusta).
+    • Só depois o código é atualizado.
+
+✅ Resumo final das respostas
+    • Pode aprovar blocos ou partes internas (linhas, itens).
+    • Melhor ter pasta .mkideia/ exclusiva, mas pode ser flexível.
+    • Pasta é criada automaticamente pelo agente.
+    • Documento terá explicações e tutorial embutidos.
+    • O código só é gerado após aprovação do plano → com checklist separado para marcar o que funciona.
+    • Documentação básica deriva do plano, mas Swagger/diagramas técnicos vêm do projeto pronto.
+
+👉 Próximo passo:
+Posso montar um exemplo real de master_plan.md (com explicações, checklist granular e tutoriais embutidos), já no formato que você abriria na tela central do MKIdeia.
+Quer que eu construa esse exemplo agora?
+
+Essas informações tambem foram essenciais:
+🔥🔥 Agora ficou claro, Mestre Kinho. Com o HybridApiService + ProjectContextAgent, você já tem a espinha dorsal do MKIdeia:
+    • HybridApiService → cuida da ponte com os modelos de IA (local via Ollama ou remoto via API).
+    • ProjectContextAgent → cuida do index do projeto, guardando todo o contexto em context.json e injetando esse "estado" nas mensagens da IA.
+Ou seja: já existe um sistema que sabe:
+    1. Qual é o projeto atual (projectId, projectRoot).
+    2. Quais arquivos existem no projeto (indexação).
+    3. Como enviar esse contexto para a IA (system message).
+    4. Como manter sessões persistentes (chat stream).
+
+Agora, juntando isso com o que falamos do Plano Mestre:
+🔹 Onde ele entra nessa arquitetura
+O master_plan.md seria apenas mais um arquivo do projeto, mas com status especial:
+/home/mk/mkide_ia/data/indexes/{projectId}/
+   ├─ context.json   # index completo dos arquivos
+   └─ ... outros
+/home/mk/MKIideiaOficial/{projectId}/
+   ├─ .mkideia/
+   │   ├─ master_plan.md
+   │   ├─ master_plan.lock.json
+   │   └─ history/
+   └─ lib/...
+👉 Assim, quando o ProjectContextAgent roda indexProjectFiles(), ele também indexa o Plano Mestre.
+👉 Quando você abrir o projeto no MKIdeia, a tela central pode carregar e exibir diretamente esse master_plan.md.
+
+🔹 Fluxo ideal que vejo
+    1. Criar projeto novo → HybridApiService cria sessão + ProjectContextAgent cria pasta/index inicial.
+    2. Rodar Agente Plano Mestre → gera master_plan.md dentro da pasta .mkideia/.
+    3. Editar/aprovar blocos → a tela central conversa com IA, mas só atualiza trechos não bloqueados.
+    4. Salvar → ProjectContextAgent.saveContext() já indexa a versão atualizada do master plan junto com os outros arquivos.
+    5. Gerar código → IA lê apenas os blocos ✅ do master_plan.lock.json e escreve na estrutura do projeto.
+
+🔹 Vantagens dessa integração
+    • Você já tem persistência automática do contexto → o plano nunca se perde.
+    • O plano se torna parte do index, então qualquer agente que rode já vai ter noção de tudo.
+    • O ProjectContextAgent pode até ser estendido para:
+        ◦ Marcar status de aprovação dos blocos (locked/pending).
+        ◦ Gerar “diffs” quando o plano muda.
+        ◦ Criar histórico incremental (ex: versões do master_plan.md).
+
+🔹 Próximo passo que eu faria
+Agora que você me passou a API + contexto, eu montaria um exemplo real de master_plan.md já no formato que ficaria dentro da pasta .mkideia/, com:
+    • Estrutura didática (explicações embutidas para leigos).
+    • Checklist granular (blocos + subitens).
+    • Indicação visual de aprovado [✅], pendente [ ], revisão [⚠️].
+    • Orientação para gerar código depois.
+
+⚡ Pergunto pra você:
+quer que eu monte esse master_plan.md de exemplo baseado no código que você já me mostrou (API + ContextAgent) como se fosse um plano real do MKIdeia?
+Aí você vai ver como ficaria na prática, na tela central, já alinhado com o sistema que você tem hoje.
+Exatamente 👌 — você pegou a essência da ideia.
+🔑 O Plano Mestre funciona como núcleo de criação. Ele não é um projeto comum, mas sim a base conceitual e estrutural que vai guiar a construção de qualquer outra aplicação dentro do MKIdeia. É como se fosse o DNA dos projetos, onde tudo começa e se organiza.
+➡️ A lógica ficaria assim:
+    1. Plano Mestre
+        ◦ Documento central, armazenado no sistema (pode ser em JSON, YAML ou outro formato estruturado).
+        ◦ Ele guarda a visão, arquitetura, requisitos e objetivos gerais do aplicativo ou sistema.
+        ◦ É sempre o primeiro passo: você define nele a ideia principal.
+    2. Agentes Especializados
+        ◦ Cada agente lê o Plano Mestre e cria documentos derivados.
+        ◦ Exemplo:
+            ▪ Agente de Arquitetura → gera diagrama de arquitetura baseado no Plano Mestre.
+            ▪ Agente de UI → gera wireframes/telas.
+            ▪ Agente de Código → começa a estruturar o boilerplate do projeto.
+            ▪ Agente de Games (como você falou) → gera um GBB (plano de jogo) a partir da narrativa.
+    3. Fluxo Natural
+        ◦ Você não fica limitado a projetos pequenos, porque o Plano Mestre sempre escala.
+        ◦ O mesmo formato pode servir para:
+            ▪ Um app simples de lista de tarefas.
+            ▪ Um sistema robusto de streaming de vídeos.
+            ▪ Até mesmo um jogo com narrativa complexa.
+💡 Então, respondendo direto:
+    • Sim, o Plano Mestre central é a base da construção da aplicação.
+    • Os outros agentes se alimentam dele para expandir em áreas específicas (código, design, arquitetura, jogos, etc).
+👉 Sugestão:
+A gente pode criar o primeiro widget do Agente "Plano Mestre" como uma tela onde você pode:
+    • Criar um novo Plano Mestre.
+    • Listar todos os planos existentes.
+    • Editar o documento direto na IDE.
+    • Enviar esse documento para os outros agentes quando quiser expandir.
+Quer que eu já monte o esqueleto desse widget do agente "Plano Mestre" (com UI e lógica para armazenar o documento inicial), ou prefere que eu primeiro desenhe a estrutura do documento JSON/YAML que será o formato oficial do Plano Mestre?
+
+Boa! Sim, o Plano Mestre pode (e deve) ser salvo como .md (Markdown), porque é leve, legível e fácil de manipular pela IA depois (edição, versão, exportação).
+👉 Então vamos montar o widget do Agente que você pediu.
+Esse widget vai abrir uma tela com a lista de agentes, e por enquanto teremos só o Plano Mestre. Quando o usuário clicar nele, abre o editor .md para começar o documento base.
+Aqui está um exemplo do widget em Flutter:
+import 'package:flutter/material.dart';
+
+class AgentsPage extends StatelessWidget {
+  const AgentsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Agentes"),
+      ),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.book, color: Colors.blue),
+            title: const Text("Plano Mestre"),
+            subtitle: const Text("Documento base (.md) para qualquer projeto"),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MasterPlanEditor(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MasterPlanEditor extends StatefulWidget {
+  const MasterPlanEditor({super.key});
+
+  @override
+  State<MasterPlanEditor> createState() => _MasterPlanEditorState();
+}
+
+class _MasterPlanEditorState extends State<MasterPlanEditor> {
+  final TextEditingController _controller = TextEditingController(
+    text: "# Plano Mestre\n\nDescreva aqui a visão geral do seu projeto...",
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Editor - Plano Mestre"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: () {
+              // TODO: salvar como arquivo .md no sistema de arquivos
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Plano Mestre salvo como .md")),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.multiline,
+          maxLines: null,
+          expands: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "Digite o Plano Mestre aqui...",
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+🔑 O que esse widget já faz:
+    1. Tela Agentes → lista todos os agentes disponíveis.
+        ◦ Agora só tem o Plano Mestre.
+    2. Ao clicar em Plano Mestre, abre um editor de texto .md.
+    3. Botão Salvar já aparece (falta só implementar a gravação no disco, mas está marcado como TODO).
+    4. O texto inicial já tem um template em Markdown.
+
+📌 Pergunta para você decidir:
+Quer que eu já implemente a parte de salvar o documento como .md no sistema de arquivos (exemplo: na pasta do projeto que estiver aberta na IDE) ou prefere que isso seja feito depois que tivermos o FileSystemController 100% integrado?
+
+Boa 👌 agora vamos organizar o fluxo direitinho antes de eu montar o código do widget do Agente (Plano Mestre).
+
+📂 Estrutura sugerida para manter clareza
+Como estamos tratando de um módulo que vai crescer (mais agentes no futuro), o ideal é manter separado dos pages comuns. Minha sugestão:
+lib/
+ ├─ src/
+ │   ├─ pages/
+ │   │   └─ home_page.dart          # Tela principal do editor
+ │   ├─ widgets/
+ │   │   ├─ agentes/
+ │   │   │   ├─ agentes_page.dart   # Tela que lista todos os agentes
+ │   │   │   └─ plano_mestre/
+ │   │   │       ├─ plano_mestre_widget.dart   # Editor/viewer do Plano Mestre
+ │   │   │       └─ plano_mestre_controller.dart # Lógica (carregar/salvar .md)
+ │   │   └─ ...
+ │   └─ models/
+ │       └─ agente_model.dart       # Modelo base para agentes
+ assets/
+ └─ docs/
+     └─ plano_mestre.md             # Arquivo inicial do Plano Mestre
+    • agentes_page.dart → mostra todos os agentes cadastrados (primeiro será só o Plano Mestre).
+    • plano_mestre_widget.dart → é o widget que abre o documento .md e permite edição.
+    • plano_mestre_controller.dart → abstrai leitura/escrita no .md.
+    • plano_mestre.md → documento base salvo em assets/docs/.
+
+🚀 Fluxo do usuário
+    1. Usuário clica no botão Executar Agentes (na home_page).
+    2. Abre a AgentesPage (lista de agentes).
+    3. O agente Plano Mestre aparece na lista.
+    4. Ao clicar nele, abre o PlanoMestreWidget → carrega plano_mestre.md e permite edição.
+    5. Alterações são salvas (manual com botão Salvar ou futuramente Ctrl+S).
+
+✅ Resposta para sua dúvida sobre o .md
+Sim, o Plano Mestre será um arquivo Markdown (plano_mestre.md).
+Isso facilita:
+    • Estruturação hierárquica do texto (títulos, subtítulos, listas).
+    • Integração futura com renderizadores de Markdown.
+    • Possibilidade de IA escrever diretamente nele (nós só abrimos o arquivo, editamos e salvamos).
+
+👉 Quer que eu já monte o agentes_page.dart (lista com um card do Plano Mestre) + o esqueleto do widget do Plano Mestre para começar a navegar?
+
+Esse abaixo foi o que se aproximo da minha ideia, claro que os outros acima existem elementos que deve ser mesclado neste: 
+Boa, vamos revisar e organizar antes de montar 🚀
+
+1. Sobre o PlanoMestreController
+Sim, é boa prática separar controladores por responsabilidade.
+O EditorController que você já tem é genérico para edição de arquivos.
+O PlanoMestreController cuidaria só do plano mestre, porque ele pode ter:
+    • Estrutura própria (.md, talvez dividido em seções).
+    • Regras de como salvar, carregar, atualizar.
+    • Funções de IA específicas para esse documento.
+👉 Mas nada impede de reaproveitar o EditorController dentro dele. Ele pode ser um wrapper.
+
+2. Por que assets/docs/plano_mestre.md?
+    • O assets/ garante que o app possa embarcar um arquivo inicial (um template do plano mestre).
+    • Depois você pode copiar esse arquivo para o diretório do projeto e trabalhar nele (já que edição em assets/ não é persistente).
+👉 Alternativa: manter dentro de lib/docs/ se quiser só referência.
+👉 Melhor solução prática: assets/docs/ (para distribuir o template) + project_root/docs/ (para salvar/editar).
+
+3. Botão "Executar Agentes" no ChatActionBar
+Perfeito!
+Hoje ele só faz ScaffoldMessenger.of(context).showSnackBar(...) com placeholder.
+Agora vamos trocar isso para:
+Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const AgentesPage()),
+);
+Assim abre a nova tela de agentes.
+
+4. Código sugerido (AgentesPage + esqueleto do Plano Mestre)
+📂 Onde criar:
+lib/src/widgets/agentes/agentes_page.dart
+lib/src/widgets/agentes/plano_mestre/plano_mestre_widget.dart
+
+agentes_page.dart
+import 'package:flutter/material.dart';
+import 'plano_mestre/plano_mestre_widget.dart';
+
+class AgentesPage extends StatelessWidget {
+  const AgentesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Agentes"),
+        backgroundColor: const Color(0xFF141516),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: const Icon(Icons.description, color: Colors.blue),
+              title: const Text("Plano Mestre"),
+              subtitle: const Text("Documento base do projeto (.md)"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlanoMestreWidget()),
+                );
+              },
+            ),
+          ),
+          // 👉 futuramente: outros agentes aqui (GBB, contexto, etc.)
+        ],
+      ),
+    );
+  }
+}
+
+plano_mestre_widget.dart (esqueleto)
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+
+class PlanoMestreWidget extends StatefulWidget {
+  const PlanoMestreWidget({super.key});
+
+  @override
+  State<PlanoMestreWidget> createState() => _PlanoMestreWidgetState();
+}
+
+class _PlanoMestreWidgetState extends State<PlanoMestreWidget> {
+  final TextEditingController _controller = TextEditingController();
+  String? _filePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlanoMestre();
+  }
+
+  Future<void> _loadPlanoMestre() async {
+    // 👉 por enquanto: arquivo salvo dentro do diretório do usuário
+    final dir = Directory.current.path; // TODO: trocar para diretório do projeto aberto
+    final file = File(p.join(dir, "plano_mestre.md"));
+
+    if (await file.exists()) {
+      _controller.text = await file.readAsString();
+      _filePath = file.path;
+    } else {
+      _controller.text = "# Plano Mestre\n\nDescreva aqui sua aplicação...";
+      await file.writeAsString(_controller.text);
+      _filePath = file.path;
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _savePlanoMestre() async {
+    if (_filePath == null) return;
+    final file = File(_filePath!);
+    await file.writeAsString(_controller.text);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Plano Mestre salvo com sucesso")),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Plano Mestre"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _savePlanoMestre,
+          )
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.multiline,
+          maxLines: null,
+          expands: true,
+          style: const TextStyle(fontSize: 16),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "Digite o plano mestre em formato Markdown",
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+✅ Com isso:
+    • Ao clicar no botão "Executar Agentes" → abre AgentesPage.
+    • Nela, aparece o agente Plano Mestre.
+    • Ao abrir, carrega/salva o arquivo plano_mestre.md direto no diretório atual.
+
+Quer que eu já adapte esse _loadPlanoMestre() para usar o diretório do projeto aberto via ChatActionBar.getProjectRootPath() em vez de Directory.current? Assim já fica integrado ao fluxo real.
+
+
+Boa! Vamos organizar isso direitinho pra não ficar confuso:
+
+1. Sobre salvar e aparecer na pasta docs
+    • O que temos até agora é apenas um widget que mostra um arquivo .md já existente.
+    • Ou seja, se você não criou manualmente assets/docs/plano_mestre.md, ele não vai “aparecer” sozinho.
+    • Para que ao clicar e salvar ele já crie o arquivo em docs/, precisamos implementar a lógica de escrita (File I/O).
+👉 No Linux/Windows isso vai para o sistema de arquivos local (File(...) do dart:io).
+👉 Se você quiser que fique só no assets/, isso não é possível em tempo de execução (os arquivos em assets são somente leitura depois de buildados).
+Portanto:
+    • Se quer editar e salvar → salvamos em docs/ na raiz do projeto (fora do assets).
+    • Se quer apenas ler → colocamos dentro de assets/docs/ e acessamos.
+
+2. Estrutura das páginas
+    • agentes_page.dart → é a lista de agentes, botão para abrir coisas.
+    • agente_plano_mestre_page.dart → é uma página separada que mostra/edita o plano_mestre.md.
+Assim você mantém a arquitetura organizada e cada agente/funcionalidade em sua pasta.
+
+3. Exibir no CenterPanel
+Exatamente isso: quando clicar em Plano Mestre, abrimos uma aba no CenterPanel (igual às outras abas de editor que você já tem).
+Assim conseguimos ver o plano mestre em Markdown e também usar o chat da IA ao lado, em tempo real.
+
+O que eu sugiro de próximos passos:
+    1. Criamos a pasta docs/ na raiz do projeto.
+       mkideia_oficial/
+       ├── lib/
+       ├── assets/
+       ├── docs/
+       │   └── plano_mestre.md   (criar vazio de início)
+    2. Implementar a AgentePlanoMestrePage para abrir esse arquivo e exibir.
+    3. Adicionar botões (Salvar / Atualizar).
+    4. Integrar no CenterPanel como uma aba nova (igual quando abre um arquivo).
+
+📌 Pergunta pra você decidir agora:
+👉 Quer que eu já monte a AgentePlanoMestrePage com suporte a edição + salvar direto no docs/plano_mestre.md (modo real de escrita) ou prefere primeiro só visualizar em Markdown renderizado?
+
+
+Perfeito! Vamos organizar:
+    • A pasta assets/docs/ será movida para dentro de lib/docs/, assim podemos trabalhar com ela como arquivos de código/dados manipuláveis pelo app.
+    • Vou montar a AgentePlanoMestrePage com:
+        1. Edição do arquivo plano_mestre.md.
+        2. Salvar direto na pasta lib/docs/.
+        3. Suporte a integração futura com o chat da IA para atualizar o plano mestre em tempo real.
+
+Estrutura sugerida:
+lib/
+├── docs/
+│   └── plano_mestre.md      <- arquivo inicial vazio
+├── pages/
+│   └── agentes/
+│       ├── agentes_page.dart
+│       └── agente_plano_mestre_page.dart
+
+Código inicial: agente_plano_mestre_page.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+
+class AgentePlanoMestrePage extends StatefulWidget {
+  const AgentePlanoMestrePage({super.key});
+
+  @override
+  State<AgentePlanoMestrePage> createState() => _AgentePlanoMestrePageState();
+}
+
+class _AgentePlanoMestrePageState extends State<AgentePlanoMestrePage> {
+  final String _filePath = p.join('lib', 'docs', 'plano_mestre.md');
+  final TextEditingController _controller = TextEditingController();
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    final file = File(_filePath);
+    if (!file.existsSync()) {
+      await file.create(recursive: true);
+    }
+    _controller.text = await file.readAsString();
+    setState(() => _loaded = true);
+  }
+
+  Future<void> _saveFile() async {
+    try {
+      final file = File(_filePath);
+      await file.writeAsString(_controller.text, flush: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plano Mestre salvo com sucesso!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Plano Mestre'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveFile,
+            tooltip: 'Salvar Plano Mestre',
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.multiline,
+          maxLines: null,
+          expands: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Escreva aqui o Plano Mestre...',
+          ),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+        ),
+      ),
+    );
+  }
+}
+
+Próximos passos sugeridos
+    1. Integrar botão “Plano Mestre” na AgentesPage para abrir esta tela no CenterPanel.
+    2. Conectar com a IA para que ela possa sugerir/editar conteúdo direto no plano mestre.
+    3. Garantir que edição e salvamento funcione corretamente em todas as plataformas (Linux/Windows).
+
+Se você quiser, posso já montar a integração do botão da AgentesPage para abrir o plano mestre direto no CenterPanel, pronto para uso com o chat da IA. Quer que eu faça isso agora?
+
+Perfeito, vamos alinhar tudo para não perdermos o foco. Vou organizar de forma clara e definitiva:
+
+1️⃣ Estrutura de pastas
+Para manter consistência e separação de responsabilidades:
+lib/
+├── docs/                      <- arquivos de texto da aplicação, como plano_mestre.md
+├── models/
+│   └── agente_model.dart       <- modelos de dados dos agentes
+├── pages/
+│   └── chat/
+│       ├── chat_page.dart      <- página principal do chat
+│       ├── chat_action_bar.dart
+│       └── agentes/            <- widgets e páginas específicas dos agentes
+│           ├── agentes_page.dart
+│           └── plano_mestre_page.dart
+    • docs/: para arquivos que serão lidos/editados pelo app (plano_mestre.md, etc.).
+    • models/: para modelos de agentes (AgenteModel).
+    • pages/chat/agentes/: para widgets e telas dos agentes.
+Mantemos chat/agentes dentro do pages para que seja consistente com a estrutura atual do chat. Não mexemos em src ou assets.
+
+2️⃣ Sobre os arquivos do Plano Mestre
+    • O PlanoMestreWidget que criei antes era apenas o esqueleto do editor do plano.
+    • O plano_mestre_page.dart é a tela completa que abre na CenterPanel, com edição e salvamento direto.
+    • Ambos servem ao mesmo propósito, mas o Page é para abrir no CenterPanel e controlar o fluxo completo.
+Podemos excluir o widget antigo e usar apenas o Page, assim evitamos duplicação e confusão.
+
+3️⃣ Botão “Executar Agente” / Plano Mestre
+    • O botão já existe no ChatActionBar.
+    • Quando o usuário clica, vamos abrir a plano_mestre_page.dart na CenterPanel, mantendo o chat da IA visível.
+    • Assim você vê o plano mestre em tempo real, pode editar e salvar, tudo integrado ao painel central.
+
+4️⃣ Próxima implementação (definitiva)
+Vou criar agora o sistema completo:
+    1. AgentesPage com lista de agentes, incluindo o “Plano Mestre”.
+    2. Clique no agente abre a tela no CenterPanel.
+    3. PlanoMestrePage integrado com salvamento automático no lib/docs/plano_mestre.md.
+    4. Preparado para receber injeção de contexto do chat/IA em tempo real.
+Nada de mudança de pasta nem duplicação de widget. Tudo dentro de lib/pages/chat/agentes.
+
+Se você quiser, posso já te devolver o código completo da AgentesPage + PlanoMestrePage + integração com CenterPanel, pronto para colocar no seu projeto sem precisar refazer nada.
+Quer que eu faça isso agora?
+
+
+
+
+=======================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+Desenvolvimento front end
+Explicação Leiga da Interface (item por item)
+Imagina que você nunca programou. Vou te explicar como se fosse um mapa da interface:
+
+🟦 Sidebar (painel esquerdo)
+    • Nova Conversa → abre uma nova sessão de chat com a IA.
+    • Fixar Resumo → guarda o resumo de um chat/projeto para consulta rápida.
+    • Indexar Projeto → escaneia os arquivos para a IA conhecer o código.
+    • Fluxos (flows) → abre o editor de fluxogramas (FlowEngine).
+    • Lista de Projetos → mostra as pastas/arquivos do projeto aberto.
+    • Configurações (Settings) → abre opções de idioma, preferências, plugins.
+
+🟦 Centro (área principal)
+Dividido em 2 camadas:
+    1. Parte superior (FileTree) → árvore de arquivos do projeto, com pastas e arquivos clicáveis.
+    2. Parte inferior (FlowCanvas) → espaço de edição visual dos fluxogramas (FlowEngine).
+        ◦ Aqui você arrasta, adiciona ou remove nós (“Start”, “Action”, “End”) para desenhar processos do sistema.
+        ◦ Pode dar zoom, mover e resetar a visão.
+
+🟦 Painel Direito (PropertiesPanel)
+    • Botão “Gerar Fluxograma” → IA desenha um fluxograma automático com base no código/projeto.
+    • Propriedades → nome e descrição do fluxograma.
+    • Preview Thumbnail → miniatura do fluxograma (para referência rápida).
+    • Ações rápidas:
+        ◦ ➕ Add → adiciona um novo nó (caixa no fluxograma).
+        ◦ ✏ Edit → altera o nome/propriedades de um nó.
+        ◦ 🔗 Link → conecta dois nós.
+        ◦ 🗑 Delete → remove um nó.
+
+🟦 Menus Superiores (futuros)
+    • Arquivo → abrir/salvar projetos e fluxogramas.
+    • Ferramentas → utilitários extras (ex.: indexar, executar IA).
+    • Plugins → extensões que adicionam funções novas.
+    • Provedores → configurações de APIs (ex.: escolher ChatGPT, Claude, etc).
+    • Design Studio → interface visual para desenhar telas.
+    • FlowEngine → editor de fluxogramas completo.
+
+👉 Em resumo:
+    • Esquerda → Navegação e projetos.
+    • Centro → Trabalho principal (fluxogramas, arquivos).
+    • Direita → Propriedades e configurações do que você está editando.
+    • Menus superiores → Arquivo, ferramentas e extras.
+
+
+Arvore de pasta do front end
+mkideia/
+├─ lib/
+│  ├─ main.dart
+│  ├─ controllers/
+│  │  └─ flow_controller.dart
+│  ├─ models/
+│  │  └─ flow_node.dart
+│  ├─ pages/
+│  │  └─ home_page.dart
+│  └─ widgets/
+│     ├─ sidebar.dart
+│     ├─ file_tree.dart
+│     ├─ flow_canvas.dart
+│     └─ properties_panel.dart
+├─ pubspec.yaml
+└─ README.md
+
+
+codigos:
+
+
+
+
+
+
+Excelente 🚀 — eu vou organizar isso agora do jeito que você pediu: resumo consolidado e revisado com todos os pontos discutidos, inclusive os que estavam dispersos nas suas mensagens (perguntas, ideias, dúvidas, sugestões e retornos meus). Assim, nada fica de fora.
+
+📑 Resumo Consolidado do Projeto MKIDEIA
+🔹 Identidade do Projeto
+    • Nome oficial: MKIDEIA (antigo MK IDE I.A).
+    • Objetivo: superar GPT, Cursor IDE IA, VSCode+IA e qualquer outra IDE inteligente atual, centralizando tudo em um único ambiente de criação de software multiplataforma e híbrido.
+    • Uso: pessoal, sem limites de uso ou bloqueios.
+    • Diferencial: funciona como uma empresa de desenvolvimento completa em um só lugar, cobrindo desde arquitetura até documentação final.
+
+🔹 Comunicação e Modelos
+    • Suporte a múltiplos modelos locais:
+    1. Modelos suportados (Ollama e outros)
+        ◦ llama3.1:8b (~4.9 GB)
+        ◦ deepseek-coder:33b (~18 GB, pesado mas muito poderoso para código).
+        ◦ codellama:13b (~7.4 GB).
+        ◦ codellama:7b (~3.8 GB).
+        ◦ deepseek-coder:6.7b (~3.8 GB).
+        ◦ llama3:latest (~4.7 GB).
+        ◦ mixtral:8x7b (~26 GB, grande mas promissor).
+        ◦ mistral:latest (~4.4 GB).
+        ◦ codellama:latest (~3.8 GB).
+        ◦ Expansão futura: explorar se existe outro além do Ollama que se encaixe melhor no projeto.
+    2. Conexões com os modelos
+        ◦ HTTP (já existe) – implantar tambem para sistemas externos podendo add apis ou entreços hhtp como feito no cursor Ide Ia mudando direto na interface.
+        ◦ CLI (execução local → rápido) - a ser implementado como redundância/alternativa.
+        ◦ Sessão única por conversa, sem perder contexto.
+
+🔹 Gestão de Contexto (RAG e Memória)
+    • RAG atual → envia contexto para o modelo.
+    • Proposta extra → criar método de consulta direta a arquivos locais (sem enviar tudo pro modelo, o modelo faz a consulta).
+    • Banco de dados:
+        ◦ Armazena informações como fonte de consulta.
+        ◦ Não só para APIs, mas também para enriquecer o contexto da IA.
+    • Pasta de conhecimentos:
+        ◦ Exemplo: flutter/, novas-tecnologias/, jogos/, etc.
+        ◦ Solução para textos grandes, atualizações pós-treinamento e consultas técnicas.
+    • Pasta de consultas:
+        ◦ para o próprio projeto. Exemplo criamos o plano de arquitetura, esse plano fica armazenado na pasta e todas as vezes que estivemos contruindo o projeto podemos ir consultado o plano
+    • Mensagens longas:
+        ◦ Estratégias: dividir em partes, salvar em pastas, ou IA acessar os arquivos em tempo real.
+    • Plugin Internet (GET only):
+        ◦ Ativável/desativável por botão.
+        ◦ Para consultas externas seguras sem expor a máquina (mostrar fonte de consulta).
+
+    • Destaque de contextos (marcação):
+        ◦ Marcamos um contexto, ou texto ou qualquer parte interessante essa parte e enviada para uma pasta e fica la ate ser desmarcada ou excluida, a parte maracada ficará em destaque e todas as vezes que acessamos iremos ve-la, tambem podemos criar uma lista onde ao clicar vamos para o arquivo marcado. A ia poderá trabalhar em contexto com essa marcação.
+
+🔹 Interface e Interação
+    1. Menu superior a esquerda: 
+        ◦ Arquivo – abrir pasta, abrir arquivo, salvar… 
+        ◦ ferramentas
+        ◦ plugins
+       
+    2. Painel Esquerdo:
+        ◦ Arquivos do projeto (sempre acessíveis).
+        ◦ Evita perda de contexto.
+        ◦ Expandir para a direita através da barra lateral, junto com o conteúdo
+    3. Painel Central:
+        ◦ Editor principal (códigos/documentos e etc).
+        ◦ IA acompanha em tempo real todas as mudanças.
+        ◦ IA pode:
+            ▪ Escrever direto no código.
+            ▪ Marcar o que vai mudar antes de aplicar.
+            ▪ Alterar apenas trechos apontados pelo desenvolvedor. Ex: estamos desenvolvendo o plano de arquitetura que esta sendo exibido na tela central, da marcamos parte do plano, a ia terá acesso somente a esse parte do plano, enviasse para um rag ou pasta onde a ia terá acesso somente a esse informação, quando desativamos a marcação ou desmarcamos(temos que descobri a forma de fazer) esse arquivo é retirado da pasta que foi criada para consulta ou rag da ai.
+            ▪ Alterar o projeto inteiro de forma controlada.
+            ▪ Expandir para direito ou para esquerda assim como todo seu conteudo atraves das barras laterais
+    4. Fluxo de Trabalho:
+        ◦ Opção de iniciar com plano de arquitetura do zero.
+        ◦ Mas não é obrigatório → liberdade total para começar de qualquer ponto.
+        ◦ Interação fluida (sem “sair do assunto”).
+
+🔹 Arquitetura e Documentação
+    • Criação de arquitetura do projeto integrada na IDE (igual estamos fazendo aqui).
+    • Atualizações contínuas: IA consegue escrever diretamente na pasta de arquitetura com histórico colorido (diff antes/depois).
+    • Documentação automática:
+        ◦ Geração por projeto inteiro, por módulo ou por arquivo.
+        ◦ Inclui requisitos legais, boas práticas e padrões de grandes apps.
+    • Etapas de desenvolvimento (após arquitetura):
+        ◦ checklist das etapas (cada etapa criada marcamos na cheklist que pode uma outra tela que poderemos direciona para outra tela e etc.
+        ◦ Lógicas de negócio.
+        ◦ Banco de dados (com geração + documentação).
+        ◦ Layouts e UI.
+        ◦ APIs. (com opções de gerar documentação)
+        ◦ Testes.
+        ◦ Deploy.
+        ◦ Gerar documentação do projeto
+
+🔹 Extensões: Jogos e Criatividade
+    • Jogos não são criados dentro da MKIDEIA, mas:
+        ◦ Estruturas de código.
+        ◦ Melhorias e otimizações.
+        ◦ Criação de níveis, mecânicas, histórias.
+        ◦ Suporte a Unity, Unreal e outras engines.
+    • GBB (Game Building Blocks):
+        ◦ implementar formas para auxiliar de maneira profissional a criação de projeto para jogos, assim como criação de histórias, fases, arquiteturas, planos, niveis, personagens e etc.
+
+🔹 Limite de Tokens / Mensagens
+    • O que são tokens: pedaços de texto que compõem entrada/saída do modelo.
+    • Limite de tokens = restrição do modelo, não do sistema em si.
+    • Soluções para ultrapassar limites:
+        ◦ Pastas de conhecimento (textos longos em arquivos).
+        ◦ RAG com busca incremental.
+        ◦ Dividir mensagens grandes em partes automáticas.
+    • Meta: MKIDEIA sem limites práticos de uso.
+
+🔹 Funcionalidades-chave já previstas
+    • Dropdown para escolher modelo.
+    • Telas com flexibilidade para expandir da direita para esquerda, do centro para os lados assim como é feito no android studio, que pode espandir sua pasta atraves da barra, assim como a tela de codigo e etc. As nossas 3 telas serão expansivas podendo conter mais espaços de acrodo com nossa vontade e o conteudo deve acompanha.
+    • Criar nova sessão.
+    • Chat com delta streaming (respostas em tempo real).
+    • RAG integrado.
+    • Upload de arquivos.
+    • Plugin internet (ativar/desativar).
+    • Suporte a multiplos modelos locais.
+    • CLI + HTTP para máxima integração.
+    • Agentes especializados (ex: arquitetura, código, jogos, documentação).
+
+Analisar, responder e adicionar ao nosso resumo:
+1. Envio de imagem - add opção para I.A recriar código através de imagem, ou seja, se desenvolvermos o design de uma aplicação e enviamos para nossa plataforma ela pode converter essa imagem em código criado nossa ui(design), ou seja, se criamos todo nosso aplicativo visual dentro de um aplicativo de design de aplicativos/software podemos apenas converter essa imagem em código, facilitando toda vida criativa/visual.
+
+2. Add formulários para criar arquitetura, novo aplicativo ou qualquer projeto que venhamos a criar. Ex: se temos uma base para se criar uma arquitetura de software onde a ia precisa de algumas informações, então vamos montar também uma opões que podemos chamar no botão para respondemos algumas perguntas para ia que ela faria para ter uma base para criar nossa primeira arquitetura, dai poderíamos realizar as mudanças, tanto tirando duvidas com a ia, rescrevendo parte da arquitetura, fazendo a ia reescrever e etc. Podemos ter essas opções  com todos os inícios de projeto. Ex: para criamos a “documentação” (me refiro a GBB) base, mas robusta para jogos, para criamos a logica de uma aplicação, ou banco de dados, ou um site, ou o próprio aplicativo. Como poderemos trabalhar isso? Amadurecer a ideia, ela é boa? Ou simplemeste podemos ter prompt prontos e bem elaborados para cada coisa, como uma lista que podemos ir add e melhorando.
+Solução possível = todas as vezes que tivemos uma ideia podemos clicar no botão de criar la teremos as opções do que queremos criar, dai mandamos para a ia um prompt pronto para que ela nos envie as perguntas aparecendo no formulario na tela de centro onde podemos preecher e reenciar para ia e apartir dai ela começa a montar todo o projeto de acordo com as informações. GPT isso é apenas uma ideia, você que ira me dizer se é posivel ou não, se é boa ou não, se tem necessidade ou não.
+
+3. podemos add para que propria ia, fazer consulta na internet o que ele anão estiver no banco de dados e ela mesma salvar isso na pasta de conhecimentos, perguntando antes se sim ou não. assim ela mesmo criaria o documentos sobre o assunto.
+
+
+criar
+
+✅ Esse resumo cobre todas as suas indagações, detalhes e apontamentos, bem como os retornos que dei até agora.
+👉 Agora me diga: você quer que eu transforme esse resumo já em atualização do plano de arquitetura oficial da MKIDEIA (versão expandida), ou prefere manter como resumo “solto” e só depois consolidamos no documento de arquitetura?
