@@ -1,0 +1,3836 @@
+PROJETO MKIDEIA
+
+ARQUITETURA DE PASTA ATUAL
+
+lib
+src
+api
+api_service.dart
+controllers
+editor_controller.dart
+FileSystemController.dart
+models
+agente_model.dart
+editor_tab.dart
+fs_node.dart
+pages
+center_panel.dart
+chat_page.dart
+home_page.dart
+left_panel.dart
+session_boot_page.dart
+panels
+providers
+model_provider.dart
+project_state.dart
+session_state.dart
+themes
+github_theme.dart
+utils
+file_service.dart
+language_config.dart
+widgets
+agentes
+plano_mestre
+plano_mestre_controller.dart
+plano_mestre_widget.dart
+agentes_page.dart
+chat
+chat_agentes
+project_context_agent.dart
+chat_action_bar.dart
+chat_header.dart
+action_bar.dart
+app_bar_widget.dart
+file_context_menu.dart
+file_system_tree.dart
+fs_exporter.dart
+main.dart
+
+
+
+main.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'src/api/api_service.dart';
+import 'src/pages/home_page.dart';
+import 'src/providers/model_provider.dart';
+import 'src/providers/session_state.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MKIdeApp());
+}
+
+class MKIdeApp extends StatelessWidget {
+  const MKIdeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final darkTheme = ThemeData.dark().copyWith(
+      scaffoldBackgroundColor: const Color(0xFF111214),
+      canvasColor: const Color(0xFF111214),
+      cardColor: const Color(0xFF151617),
+      dividerColor: const Color(0xFF2A2C2D),
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Color(0xFF111214),
+        foregroundColor: Colors.white,
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: Color(0xFF1C212B),
+        border: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF2A2C2D)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF2A2C2D)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white30),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: Color(0xFF171A22),
+      ),
+      colorScheme: ThemeData.dark().colorScheme.copyWith(
+        primary: Colors.blueGrey.shade200,
+        secondary: Colors.blueGrey.shade300,
+      ),
+      textTheme: ThemeData.dark().textTheme,
+    );
+
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SessionState>(
+          create: (_) => SessionState(),
+        ),
+        Provider<HybridApiService>(
+          create: (_) => HybridApiService(
+            baseUrl: 'http://127.0.0.1:5000/v1',
+            useLocal: false,
+          ),
+        ),
+        ChangeNotifierProvider<ModelProvider>(
+          create: (_) => ModelProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: darkTheme,
+        home: const HomePage(), // mantém o layout SplitView original
+      ),
+    );
+  }
+}
+
+
+api_service.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+class HybridApiService {
+  final String baseUrl;
+  bool useLocal;
+  final http.Client _client = http.Client();
+
+  String? currentProject = "default";
+  String? currentSession;
+
+  HybridApiService({
+    required this.baseUrl,
+    this.useLocal = false,
+  });
+
+  void dispose() {
+   // print('[DEBUG] Disposing HybridApiService');
+    _client.close();
+  }
+
+  Future<List<String>> getModels() async {
+   // print('[DEBUG] getModels called, useLocal=$useLocal');
+    if (useLocal) {
+      final result = await Process.run(
+        'ollama',
+        ['list'],
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      );
+      if (result.exitCode == 0) {
+        print('[DEBUG] Modelos locais obtidos');
+        return result.stdout
+            .toString()
+            .split('\n')
+            .skip(1)
+            .where((l) => l.trim().isNotEmpty)
+            .map((l) => l.split(' ').first)
+            .toList();
+      } else {
+        throw Exception('Erro ao listar modelos locais: ${result.stderr}');
+      }
+    } else {
+      final uri = Uri.parse('$baseUrl/models');
+      final resp = await _client.get(uri).timeout(const Duration(seconds: 30));
+      if (resp.statusCode == 200) {
+        final j = jsonDecode(resp.body);
+        if (j is Map && j['data'] is List) {
+          print('[DEBUG] Modelos remotos obtidos');
+          return (j['data'] as List).map((e) => e['id'].toString()).toList();
+        }
+      }
+      throw Exception('Failed to load models: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  Future<void> selectSession({required String projectId, required String sessionId}) async {
+    print('[DEBUG] selectSession: project=$projectId session=$sessionId');
+    currentProject = projectId;
+    currentSession = sessionId;
+  }
+
+  Future<void> _ensureSession({String projectId = "default"}) async {
+    if (currentSession == null) {
+      print('[DEBUG] _ensureSession criando sessionId');
+      currentSession = DateTime.now().millisecondsSinceEpoch.toString();
+      currentProject = projectId;
+    }
+  }
+
+  Stream<String> chatStreamWithHistory({
+    required String model,
+    required List<Map<String, String>> messages,
+  }) async* {
+    print('[DEBUG] chatStreamWithHistory called: model=$model messages=${messages.length}');
+    await _ensureSession(projectId: currentProject ?? "default");
+
+    if (useLocal) {
+      final process = await Process.start('ollama', ['run', model], runInShell: true);
+      for (var m in messages) {
+        if (m['role'] == 'user') process.stdin.writeln(m['content']);
+      }
+      await process.stdin.flush();
+      await process.stdin.close();
+      await for (final data in process.stdout.transform(utf8.decoder)) {
+        print('[DEBUG] Stream local delta: $data');
+        yield data;
+      }
+    } else {
+      final uri = Uri.parse('$baseUrl/chat/completions');
+      final request = http.Request('POST', uri);
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode({
+        "model": model,
+        "messages": messages,
+        "stream": true,
+        "project_id": currentProject,
+        "session_id": currentSession
+      });
+
+      final streamedResponse = await _client.send(request);
+      if (streamedResponse.statusCode != 200) {
+        final body = await streamedResponse.stream.bytesToString();
+        throw Exception('Stream error: ${streamedResponse.statusCode} $body');
+      }
+
+      final lineStream = streamedResponse.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in lineStream) {
+        if (line.trim().isEmpty) continue;
+        if (line.startsWith('data:')) {
+          final payload = line.substring(5).trim();
+          if (payload == '[DONE]') break;
+          try {
+            final parsed = jsonDecode(payload);
+            if (parsed is Map && parsed.containsKey('delta')) {
+              print('[DEBUG] Stream remoto delta: ${parsed['delta']}');
+              yield parsed['delta'].toString();
+            }
+          } catch (_) {
+          //  print('[DEBUG] Stream remoto não JSON delta: $payload');
+            yield payload;
+          }
+        }
+      }
+    }
+  }
+}
+
+
+editor_controller.dart
+class EditorController {
+  final CodeController codeController;
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
+
+  /// Texto "commitado" (último estado estável após salvar/abrir/undo/redo).
+  String _committedText;
+
+  /// Indica se já abrimos uma sessão de edição desde o último
+  commit.bool _editingSessionOpen = false;
+
+  EditorController(this.codeController) : _committedText = codeController.text;
+
+  /// Chamado quando a UI (digitação do usuário) altera o texto. /// Na primeira mudança, empilha o snapshot anterior no undo.
+  void onUserChange() {
+    if (!_editingSessionOpen) {
+      _undoStack.add(_committedText);
+      _redoStack.clear();
+      _editingSessionOpen = true;
+    } // Não mexemos em codeController.text aqui, o CodeField já atualizou.
+  }
+
+  /// Atualiza o texto de forma programática (ex.: IA aplicando patch). /// Empilha o estado atual no undo e reseta sessão.
+  void updateText(String newText) {
+    _undoStack.add(codeController.text);
+    _redoStack.clear();
+    codeController.text = newText;
+    _committedText = newText;
+    _editingSessionOpen = false;
+  }
+
+  /// Confirma o estado atual como base (após salvar/abrir/undo/redo).
+  void commitEditingSession() {
+    _committedText = codeController.text;
+    _editingSessionOpen = false;
+  }
+
+  void undo() {
+    // Fecha sessão aberta para não perder consistência.
+    if (_editingSessionOpen) {
+      commitEditingSession();
+    }
+    if (_undoStack.isNotEmpty) {
+      final prev = _undoStack.removeLast();
+      _redoStack.add(codeController.text);
+      codeController.text = prev;
+      _committedText = codeController.text;
+      _editingSessionOpen = false;
+    }
+  }
+
+  void redo() {
+    if (_editingSessionOpen) {
+      commitEditingSession();
+    }
+    if (_redoStack.isNotEmpty) {
+      final next = _redoStack.removeLast();
+      _undoStack.add(codeController.text);
+      codeController.text = next;
+      _committedText = codeController.text;
+      _editingSessionOpen = false;
+    }
+  }
+
+  String get text => codeController.text;
+}
+
+
+FileSystemController.dart
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import '../models/fs_node.dart';
+
+class FileSystemController {
+  /// Caminho raiz do projeto (pasta base aberta no editor)
+  final String rootPath;
+
+  /// Nó raiz da árvore
+  late FsNode rootNode;
+
+  /// Buffer interno para copiar/recortar arquivos/pastas
+  String? _clipboardPath;
+  bool _cutOperation = false;
+
+  FileSystemController(this.rootPath) {
+    rootNode = FsNode.fromDirectory(Directory(rootPath));
+  }
+
+  // -------------------------
+  // 🔧 CRUD BÁSICO
+  // -------------------------
+
+  Future<File> createFile(String relativePath, {String extension = "txt"}) async {
+    final fullPath = p.join(rootPath, "$relativePath.$extension");
+    final file = File(fullPath);
+    if (!await file.exists()) await file.create(recursive: true);
+    _atualizarRaiz();
+    return file;
+  }
+
+  Future<Directory> createFolder(String relativePath) async {
+    final fullPath = p.join(rootPath, relativePath);
+    final dir = Directory(fullPath);
+    if (!await dir.exists()) await dir.create(recursive: true);
+    _atualizarRaiz();
+    return dir;
+  }
+
+  Future<FileSystemEntity> rename(String relativePath, String newName) async {
+    final entity = FileSystemEntity.isDirectorySync(p.join(rootPath, relativePath))
+        ? Directory(p.join(rootPath, relativePath))
+        : File(p.join(rootPath, relativePath));
+    final newPath = p.join(p.dirname(entity.path), newName);
+    final result = await entity.rename(newPath);
+    _atualizarRaiz();
+    return result;
+  }
+
+  Future<void> delete(String relativePath) async {
+    final fullPath = p.join(rootPath, relativePath);
+    final entity = FileSystemEntity.isDirectorySync(fullPath)
+        ? Directory(fullPath)
+        : File(fullPath);
+    if (await entity.exists()) await entity.delete(recursive: true);
+    _atualizarRaiz();
+  }
+
+  // -------------------------
+  // 📄 OPERAÇÕES EM ARQUIVOS/PASTAS
+  // -------------------------
+
+  Future<FileSystemEntity> duplicate(String relativePath) async {
+    final fullPath = p.join(rootPath, relativePath);
+    final entity = FileSystemEntity.isDirectorySync(fullPath)
+        ? Directory(fullPath)
+        : File(fullPath);
+    final newPath = fullPath + "_copy";
+    FileSystemEntity result;
+    if (entity is File) result = await entity.copy(newPath);
+    else if (entity is Directory) result = await _copyDirectory(entity, Directory(newPath));
+    else throw Exception("Entidade desconhecida");
+    _atualizarRaiz();
+    return result;
+  }
+
+  void copy(String relativePath) {
+    _clipboardPath = p.join(rootPath, relativePath);
+    _cutOperation = false;
+  }
+
+  void cut(String relativePath) {
+    _clipboardPath = p.join(rootPath, relativePath);
+    _cutOperation = true;
+  }
+
+  Future<FileSystemEntity?> paste(String relativeTargetPath) async {
+    if (_clipboardPath == null) return null;
+    final targetPath = p.join(rootPath, relativeTargetPath);
+    final source = FileSystemEntity.isDirectorySync(_clipboardPath!)
+        ? Directory(_clipboardPath!)
+        : File(_clipboardPath!);
+    final newPath = p.join(targetPath, p.basename(_clipboardPath!));
+    FileSystemEntity result;
+    if (_cutOperation) result = await source.rename(newPath);
+    else if (source is File) result = await source.copy(newPath);
+    else if (source is Directory) result = await _copyDirectory(source, Directory(newPath));
+    else throw Exception("Entidade desconhecida");
+    _clipboardPath = null;
+    _cutOperation = false;
+    _atualizarRaiz();
+    return result;
+  }
+
+  // -------------------------
+  // 🔍 PESQUISA
+  // -------------------------
+
+  Future<List<String>> search(String query) async {
+    final results = <String>[];
+    final dir = Directory(rootPath);
+    await for (var entity in dir.list(recursive: true, followLinks: false)) {
+      if (p.basename(entity.path).toLowerCase().contains(query.toLowerCase()))
+        results.add(entity.path);
+    }
+    return results;
+  }
+
+  // -------------------------
+  // 📂 SISTEMA
+  // -------------------------
+
+  Future<void> openInExplorer(String relativePath) async {
+    final fullPath = p.join(rootPath, relativePath);
+    if (Platform.isLinux) await Process.run('xdg-open', [fullPath]);
+    else if (Platform.isWindows) await Process.run('explorer', [fullPath]);
+    else if (Platform.isMacOS) await Process.run('open', [fullPath]);
+  }
+
+  Future<void> exportZip(String relativePath, String exportPath) async {
+    throw UnimplementedError("Exportar ZIP ainda não implementado");
+  }
+
+  Future<void> reformatFile(String relativePath) async {
+    throw UnimplementedError("Reformatar ainda não implementado");
+  }
+
+  Future<void> favorite(String relativePath) async {
+    throw UnimplementedError("Favoritos ainda não implementado");
+  }
+
+  Future<void> history(String relativePath) async {
+    throw UnimplementedError("Histórico ainda não implementado");
+  }
+
+  Future<void> syncWithGit() async {
+    throw UnimplementedError("Git Sync ainda não implementado");
+  }
+
+  // -------------------------
+  // 🔧 HELPERS
+  // -------------------------
+
+  Future<Directory> _copyDirectory(Directory source, Directory destination) async {
+    if (!await destination.exists()) await destination.create(recursive: true);
+    await for (var entity in source.list(recursive: false)) {
+      if (entity is Directory) {
+        await _copyDirectory(entity, Directory(p.join(destination.path, p.basename(entity.path))));
+      } else if (entity is File) {
+        await entity.copy(p.join(destination.path, p.basename(entity.path)));
+      }
+    }
+    return destination;
+  }
+
+  void _atualizarRaiz() {
+    rootNode = FsNode.fromDirectory(Directory(rootPath));
+  }
+
+  Future<String> exportTree({bool saveToFile = false, String? filePath}) async {
+    String result = _exportNode(rootNode, 0);
+    if (saveToFile) {
+      final file = File(filePath ?? p.join(rootPath, "estrutura_arvore.txt"));
+      await file.writeAsString(result);
+    }
+    return result;
+  }
+
+  String _exportNode(FsNode node, int depth) {
+    final indent = '  ' * depth;
+    final buffer = StringBuffer();
+    buffer.writeln('$indent${node.isDir ? "📁" : "📄"} ${node.name}');
+    for (var child in node.children) buffer.write(_exportNode(child, depth + 1));
+    return buffer.toString();
+  }
+}
+
+
+editor_tab.dart
+
+// criado para editar o acesso de abas
+import '../controllers/editor_controller.dart';
+
+class EditorTab {
+  final String path;
+  final String name;
+  final EditorController controller;
+
+  EditorTab({
+    required this.path,
+    required this.name,
+    required this.controller,
+  });
+}
+
+
+fs_node.dart
+// Modelo de nó da árvore de arquivos/pastas
+import 'dart:io';
+
+class FsNode {
+  final String name;
+  final String path;
+  final bool isDir;
+  final List<FsNode> children;
+
+  FsNode({
+    required this.name,
+    required this.path,
+    required this.isDir,
+    this.children = const [],
+  });
+
+  FsNode copyWith({List<FsNode>? children}) =>
+      FsNode(name: name, path: path, isDir: isDir, children: children ?? this.children);
+
+  /// Cria a árvore a partir de um Directory
+  factory FsNode.fromDirectory(Directory dir) {
+    final children = <FsNode>[];
+    for (var entity in dir.listSync(recursive: false)) {
+      if (entity is Directory) {
+        children.add(FsNode.fromDirectory(entity));
+      } else if (entity is File) {
+        children.add(FsNode(name: entity.uri.pathSegments.last, path: entity.path, isDir: false));
+      }
+    }
+    return FsNode(
+      name: dir.uri.pathSegments.isNotEmpty ? dir.uri.pathSegments.last : dir.path,
+      path: dir.path,
+      isDir: true,
+      children: children,
+    );
+  }
+}
+
+
+center_panel.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import '../themes/github_theme.dart';
+
+class CenterPanel extends StatelessWidget {
+  final CodeController? codeController;
+  final bool isEditing;
+  final Function(String) onCodeChange;
+
+  const CenterPanel({
+    super.key,
+    required this.codeController,
+    required this.isEditing,
+    required this.onCodeChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF0B0C0D),
+      child: codeController == null
+          ? const Center(
+          child: Text('Selecione um arquivo para editar',
+              style: TextStyle(color: Colors.white70)))
+          : Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: CodeTheme(
+          data: CodeThemeData(styles: githubTheme),
+          child: CodeField(
+            controller: codeController!,
+            textStyle: const TextStyle(
+                fontFamily: 'SourceCodePro',
+                fontSize: 14,
+                color: Colors.white),
+            expands: true,
+            onChanged: onCodeChange,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+chat_page.dart
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../api/api_service.dart';
+import '../providers/session_state.dart';
+import '../widgets/chat/chat_action_bar.dart';
+import '../widgets/chat/chat_agentes/project_context_agent.dart';
+import '../widgets/chat/chat_header.dart';
+
+class ChatPage extends StatefulWidget {
+  final String? Function() getProjectRootPath; // novo parâmetro
+
+  const ChatPage({
+    super.key,
+    required this.getProjectRootPath, // obrigatório
+  });
+
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final TextEditingController _chatController = TextEditingController();
+  final ScrollController _chatScrollController = ScrollController();
+  StreamSubscription<String>? _streamSub;
+
+  bool _useLocal = true; // controla se está em modo Local ou Servidor
+  bool _projectIndexed = false; // se o botão de indexação está ativo
+  Map<String, String> _projectIndex = {}; // conteúdo indexado do projeto
+  ProjectContextAgent? _contextAgent;
+  String? _currentProjectId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initProjectContext();
+  }
+
+  Future<void> _initProjectContext() async {
+    final rootPath = widget.getProjectRootPath.call();
+    if (rootPath != null) {
+      _currentProjectId = rootPath.split(Platform.pathSeparator).last;
+      _contextAgent = ProjectContextAgent(_currentProjectId!);
+      final loaded = await _contextAgent!.loadContext();
+      _projectIndex = loaded;
+      setState(() {
+        _projectIndexed = _projectIndex.isNotEmpty;
+      });
+      print('[ChatPage] Projeto carregado com contexto: ${_projectIndex.keys}');
+    } else {
+      print('[ChatPage] Nenhum projeto aberto ao inicializar contexto');
+    }
+  }
+
+  @override
+  void dispose() {
+    _streamSub?.cancel();
+    _chatController.dispose();
+    _chatScrollController.dispose();
+    super.dispose();
+  }
+
+  void _sendMessage() {
+    final prompt = _chatController.text.trim();
+    if (prompt.isEmpty) return;
+
+    final state = context.read<SessionState>();
+    final api = context.read<HybridApiService>();
+
+    if (state.model.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione um modelo')),
+      );
+      return;
+    }
+
+    state.addUser(prompt);
+    state.startAssistant();
+    _chatController.clear();
+    _scrollChatToBottom();
+
+    final msgs = state.messages
+        .map((m) => {'role': m.role, 'content': m.content})
+        .toList();
+
+    // 🔹 Injeta contexto atualizado se o projeto estiver indexado
+    if (_projectIndexed && _projectIndex.isNotEmpty) {
+      final contextText = _projectIndex.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join('\n\n');
+      msgs.insert(0, {'role': 'system', 'content': 'Contexto do projeto:\n$contextText'});
+      print('[ChatPage] Contexto injetado: ${_projectIndex.keys}');
+    }
+
+    _streamSub?.cancel();
+    _streamSub = api
+        .chatStreamWithHistory(model: state.model, messages: msgs)
+        .listen((delta) {
+      state.appendAssistant(delta);
+      _scrollChatToBottom();
+    }, onError: (e) {
+      state.appendAssistant('\n[Erro: $e]');
+      state.endStream();
+    }, onDone: () {
+      state.endStream();
+    });
+  }
+
+  void _scrollChatToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollController.hasClients) {
+        _chatScrollController.animateTo(
+          _chatScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _editMessage(SessionState state, int index) {
+    final msg = state.messages[index];
+    _chatController.text = msg.content;
+    state.removeAt(index);
+  }
+
+  void _removeMessage(SessionState state, int index) {
+    state.removeAt(index);
+  }
+
+  //logica do botão indexa direto do chat page
+  /*
+  Future<void> _toggleProjectIndexation() async {
+    final rootPath = widget.getProjectRootPath.call();
+    if (rootPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Abra um projeto antes de indexar')),
+      );
+      return;
+    }
+
+    setState(() {
+      _projectIndexed = !_projectIndexed;
+    });
+
+    if (_projectIndexed) {
+      _currentProjectId = rootPath.split(Platform.pathSeparator).last;
+      _contextAgent ??= ProjectContextAgent(_currentProjectId!);
+      _projectIndex = await _contextAgent!.loadContext();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projeto indexado e contexto ativo')),
+      );
+      print('[ChatPage] Contexto atualizado: ${_projectIndex.keys}');
+    } else {
+      await _contextAgent?.clearContext();
+      _projectIndex.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contexto do projeto desativado')),
+      );
+    }
+  }*/
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<SessionState>();
+
+    return Column(
+      children: [
+        // 🔹 Cabeçalho do chat
+        ChatHeader(
+          useLocal: _useLocal,
+          streaming: state.streaming,
+          onOpenChat: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Chat aberto!')),
+            );
+          },
+          onStopStream: () {
+            _streamSub?.cancel();
+            state.endStream();
+          },
+          onConnectionChange: (v) {
+            setState(() => _useLocal = v);
+          },
+        ),
+
+        // 🔹 Corpo do chat (mensagens)
+        Expanded(
+          child: ListView.builder(
+            controller: _chatScrollController,
+            padding: const EdgeInsets.all(12),
+            itemCount: state.messages.length,
+            itemBuilder: (_, i) {
+              final m = state.messages[i];
+              final isUser = m.role == 'user';
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isUser ? const Color(0xFF0F1115) : const Color(0xFF2A1B3D),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment:
+                        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        children: [
+                          SelectableText(
+                            m.content,
+                            showCursor: true,
+                            cursorWidth: 2,
+                            cursorColor: Colors.purple,
+                            cursorRadius: const Radius.circular(2),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          if (isUser) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 18, color: Colors.white),
+                                  tooltip: 'Copiar',
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: m.content));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Copiado para área de transferência')),
+                                    );
+                                  },
+                                ),
+                                if (isUser) ...[
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 18, color: Colors.white),
+                                    tooltip: 'Editar',
+                                    onPressed: state.streaming ? null : () => _editMessage(state, i),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, size: 18, color: Colors.white),
+                                    tooltip: 'Remover',
+                                    onPressed: state.streaming ? null : () => _removeMessage(state, i),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 🔹 Action bar com os botões extras
+        ChatActionBar(
+          useLocal: _useLocal,
+          onClearMessages: () => state.clearMessages(),
+          getLastAssistantText: () => state.messages
+              .lastWhere((m) => m.role == 'assistant', orElse: () => ChatMessage("assistant", ""))
+              .content,
+          onConnectionChange: (v) {
+            setState(() => _useLocal = v);
+          },
+          getProjectRootPath: widget.getProjectRootPath,
+          key: const ValueKey('chatActionBar'),
+        ),
+
+      /*  // 🔹 Botão verde de indexação do projeto
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.folder_open),
+            label: Text(_projectIndexed ? 'Projeto Indexado' : 'Indexar Projeto'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _projectIndexed ? Colors.green : Colors.grey[800],
+            ),
+            onPressed: _toggleProjectIndexation,
+          ),
+        ),
+*/
+        // 🔹 Campo de input
+        const Divider(height: 1, color: Color(0xFF222426)),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _chatController,
+                    minLines: 1,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      hintText: 'Digite sua mensagem...',
+                    ),
+                    enabled: !state.streaming,
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+                IconButton(
+                  icon: state.streaming
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Icon(Icons.send),
+                  onPressed: state.streaming ? null : _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+home_page.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:highlight/languages/dart.dart';
+import 'package:split_view/split_view.dart';
+import 'package:path/path.dart' as p;
+import '../controllers/FileSystemController.dart';
+import '../models/fs_node.dart';
+import '../utils/language_config.dart';
+import '../controllers/editor_controller.dart';
+import '../widgets/action_bar.dart';
+import 'left_panel.dart';
+import 'center_panel.dart';
+import 'chat_page.dart';
+import '../models/editor_tab.dart'; // novo
+
+// 🔹 Intent customizado para salvar arquivo
+class SaveFileIntent extends Intent {
+  const SaveFileIntent();
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  FsNode? _rootNode;
+  FileSystemEntity? selectedFile;
+  FileSystemController? _fsController;
+
+  final ScrollController _tabScrollController = ScrollController();
+  final SplitViewController horizontalSplitController =
+  SplitViewController(weights: [0.25, 0.5, 0.25]);
+
+  final GlobalKey<EditorActionBarState> _actionBarKey =
+  GlobalKey<EditorActionBarState>();
+
+  List<EditorTab> _tabs = [];
+  int _activeTabIndex = 0;
+  TabController? _tabController;
+
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+
+  }
+
+  @override
+  void dispose() {
+    for (var tab in _tabs) {
+      tab.controller.codeController.dispose();
+    }
+    horizontalSplitController.dispose();
+    _tabController?.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _openFileAsTab(String path) async {
+    final existingIndex = _tabs.indexWhere((t) => t.path == path);
+    if (existingIndex != -1) {
+      setState(() {
+        _activeTabIndex = existingIndex;
+        _tabController?.index = existingIndex;
+      });
+      return;
+    }
+
+    final text = await File(path).readAsString();
+    final codeController = CodeController(
+      text: text,
+      language: dart, // linguagem padrão para teste
+    );
+    final editorController = EditorController(codeController);
+
+    final newTab = EditorTab(
+      path: path,
+      name: p.basename(path),
+      controller: editorController,
+    );
+
+    setState(() {
+      _tabs.add(newTab);
+      _activeTabIndex = _tabs.length - 1;
+      _tabController = TabController(
+        length: _tabs.length,
+        vsync: this,
+        initialIndex: _activeTabIndex,
+      );
+    });
+  }
+
+  void _closeTab(int index) {
+    setState(() {
+      _tabs[index].controller.codeController.dispose();
+      _tabs.removeAt(index);
+      if (_tabs.isEmpty) {
+        _activeTabIndex = 0;
+        _tabController = null;
+      } else {
+        _activeTabIndex = index > 0 ? index - 1 : 0;
+        _tabController = TabController(
+          length: _tabs.length,
+          vsync: this,
+          initialIndex: _activeTabIndex,
+        );
+      }
+    });
+  }
+
+  void _saveActiveFile() {
+    _actionBarKey.currentState?.saveFile();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Arquivo salvo (CTRL+S)")),
+    );
+  }
+
+  PreferredSizeWidget _buildTopAppBar() {
+    return AppBar(
+      title: const Text('MKIDEIA - FlowEngine'),
+      elevation: 0,
+      backgroundColor: const Color(0xFF111214),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: <LogicalKeySet, Intent>{
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS): const SaveFileIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS): const SaveFileIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          SaveFileIntent: CallbackAction<SaveFileIntent>(
+            onInvoke: (intent) => _saveActiveFile(),
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          focusNode: _focusNode,
+          child: Scaffold(
+            appBar: _buildTopAppBar(),
+            body: Column(
+              children: [
+                EditorActionBar(
+                  key: _actionBarKey,
+                  onRootNodeChanged: (node) => setState(() => _rootNode = node),
+                  onSelectedPathChanged: (_) {},
+                  onSelectedFileChanged: (file) => setState(() => selectedFile = file),
+                  onEditorControllerChanged: (_) {},
+                  onIsEditingChanged: (_) {},
+                  onFsControllerChanged: (fs) => setState(() => _fsController = fs),
+                  getActiveEditorController: () {
+                    if (_tabs.isEmpty) return null;
+                    return _tabs[_activeTabIndex].controller;
+                  },
+                  getActiveFile: () {
+                    if (_tabs.isEmpty) return null;
+                    return File(_tabs[_activeTabIndex].path);
+                  },
+                ),
+                // resto do código...
+
+                Expanded(
+                  child: SplitView(
+                    controller: horizontalSplitController,
+                    gripSize: 8,
+                    gripColor: const Color(0xFF2A2C2D),
+                    viewMode: SplitViewMode.Horizontal,
+                    children: [
+                      LeftPanel(
+                        rootNode: _rootNode,
+                        selectedPath:
+                        _tabs.isNotEmpty ? _tabs[_activeTabIndex].path : null,
+                        onFileTap: (path) => _openFileAsTab(path),
+                        onOpenFolder: () =>
+                            _actionBarKey.currentState?.openFolder(),
+                        onRightClick: (offset, node) {},
+                      ),
+                      _tabs.isEmpty
+                          ? const Center(
+                          child: Text(
+                            'Nenhum arquivo aberto',
+                            style: TextStyle(color: Colors.white70),
+                          ))
+                          : Column(
+                        children: [
+                          Material(
+                            color: const Color(0xFF1B1C1D),
+                            child: SizedBox(
+                              height: 42,
+                              child: Scrollbar(
+                                controller: _tabScrollController,
+                                thumbVisibility: true,
+                                trackVisibility: false,
+                                interactive: true,
+                                thickness: 4,
+                                radius: const Radius.circular(3),
+                                child: SingleChildScrollView(
+                                  controller: _tabScrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  child: Row(
+                                    children: _tabs
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final index = entry.key;
+                                      final tab = entry.value;
+                                      final isActive =
+                                          index == _activeTabIndex;
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _activeTabIndex = index;
+                                            _tabController?.index =
+                                                index;
+                                          });
+                                        },
+                                        child: Container(
+                                          padding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                          margin: const EdgeInsets.only(
+                                              right: 2),
+                                          decoration: BoxDecoration(
+                                            color: isActive
+                                                ? const Color(0xFF2A2C2D)
+                                                : const Color(0xFF1B1C1D),
+                                            borderRadius:
+                                            const BorderRadius.vertical(
+                                                top: Radius.circular(4)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                tab.name,
+                                                style: TextStyle(
+                                                    color: isActive
+                                                        ? Colors.white
+                                                        : Colors.white70),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              GestureDetector(
+                                                onTap: () =>
+                                                    _closeTab(index),
+                                                child: const Icon(
+                                                    Icons.close,
+                                                    size: 16,
+                                                    color:
+                                                    Colors.white70),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: _tabs
+                                  .map((tab) => CenterPanel(
+                                codeController: tab
+                                    .controller.codeController,
+                                isEditing: false,
+                                onCodeChange: (_) => tab
+                                    .controller.onUserChange(),
+                              ))
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                      ChatPage(
+                        getProjectRootPath: () =>
+                        _rootNode != null ? _rootNode!.path : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+import 'package:flutter/material.dart';
+import '../models/fs_node.dart';
+
+class LeftPanel extends StatefulWidget {
+  final FsNode? rootNode;
+  final String? selectedPath;
+  final Function(String) onFileTap;
+  final Function() onOpenFolder;
+  final Function(Offset position, FsNode node)? onRightClick;
+
+  const LeftPanel({
+    super.key,
+    required this.rootNode,
+    required this.selectedPath,
+    required this.onFileTap,
+    required this.onOpenFolder,
+    this.onRightClick,
+  });
+
+  /// ✅ Expor caminho raiz do projeto aberto
+  String? get projectRootPath => rootNode?.path;
+
+  @override
+  State<LeftPanel> createState() => _LeftPanelState();
+}
+
+class _LeftPanelState extends State<LeftPanel> {
+  String? _hoveredPath;
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildTree(FsNode node, {int depth = 0}) {
+    final paddingLeft = depth == 0 ? 12.0 : 12.0 + depth * 16.0;
+
+    if (node.isDir) {
+      return Padding(
+        padding: EdgeInsets.only(left: paddingLeft),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: GestureDetector(
+            onSecondaryTapDown: (details) {
+              if (widget.onRightClick != null) {
+                widget.onRightClick!(details.globalPosition, node);
+              }
+            },
+            child: ExpansionTile(
+              initiallyExpanded: depth == 0,
+              leading: const Icon(Icons.folder, color: Colors.amber),
+              title: Text(
+                node.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              children: node.children
+                  .map<Widget>((c) => _buildTree(c, depth: depth + 1))
+                  .toList(),
+            ),
+          ),
+        ),
+      );
+    } else {
+      final isSelected = node.path == widget.selectedPath;
+      final isHovered = node.path == _hoveredPath;
+
+      return Padding(
+        padding: EdgeInsets.only(left: paddingLeft),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hoveredPath = node.path),
+          onExit: (_) => setState(() => _hoveredPath = null),
+          child: GestureDetector(
+            onTap: () => widget.onFileTap(node.path),
+            onSecondaryTapDown: (details) {
+              if (widget.onRightClick != null) {
+                widget.onRightClick!(details.globalPosition, node);
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF2A2C2D)
+                    : isHovered
+                    ? const Color(0xFF1F2123)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(
+                    Icons.insert_drive_file, color: Colors.grey),
+                title: Text(
+                  node.name,
+                  style: TextStyle(
+                    color: isSelected || isHovered ? Colors.white : Colors
+                        .white70,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight
+                        .normal,
+                  ),
+                ),
+                selected: isSelected,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F1112),
+        border: Border(right: BorderSide(color: Color(0xFF222426))),
+      ),
+      child: Column(
+        children: [
+          // Cabeçalho
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF222426))),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.rootNode?.path ?? 'Nenhum projeto aberto',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.folder_open, color: Colors.white70),
+                  tooltip: 'Open Folder',
+                  onPressed: widget.onOpenFolder,
+                ),
+              ],
+            ),
+          ),
+          // Lista de arquivos/pastas
+          Expanded(
+            child: widget.rootNode == null
+                ? const Center(
+              child: Text(
+                'Use File > Open Folder',
+                style: TextStyle(color: Colors.white70),
+              ),
+            )
+                : Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              child: ListView(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                children: [_buildTree(widget.rootNode!)],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFF222426)),
+          // Rodapé com ajuda e configurações
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: const [
+                Row(
+                  children: [
+                    Icon(Icons.help_outline, color: Colors.white70, size: 18),
+                    SizedBox(width: 8),
+                    Text('Ajuda', style: TextStyle(color: Colors.white70)),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.settings, color: Colors.white70, size: 18),
+                    SizedBox(width: 8),
+                    Text('Configurações',
+                        style: TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+session_boot_page.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../api/api_service.dart';
+import '../providers/session_state.dart';
+import 'chat_page.dart';
+
+class SessionBootPage extends StatefulWidget {
+  const SessionBootPage({super.key});
+  @override
+  State<SessionBootPage> createState() => _SessionBootPageState();
+}
+
+class _SessionBootPageState extends State<SessionBootPage> {
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    print('[DEBUG] initState SessionBootPage');
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    print('[DEBUG] _boot called');
+    try {
+      final state = context.read<SessionState>();
+      final api = context.read<HybridApiService>();
+
+      final nowId = DateTime.now().millisecondsSinceEpoch.toString();
+      print('[DEBUG] Criando nova sessão: $nowId');
+      state.setSession(proj: state.projectId, sess: nowId);
+      api.currentProject = state.projectId;
+      api.currentSession = nowId;
+
+    } catch (e) {
+      print('[DEBUG] Erro no boot: $e');
+      _error = '$e';
+    } finally {
+      if (mounted) {
+        print('[DEBUG] Boot finalizado');
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    print('[DEBUG] Build SessionBootPage');
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_error != null) return Scaffold(body: Center(child: Text('Falha ao iniciar sessão: $_error')));
+    return ChatPage(getProjectRootPath: () {  },);
+  }
+}
+
+
+model_provider.dart
+/*
+import 'package:flutter/material.dart';
+
+class ModelProvider extends ChangeNotifier {
+  List<String> models = [];
+  String selectedModel = '';
+
+  void setModels(List<String> m) {
+    models = m;
+    if (m.isNotEmpty && selectedModel.isEmpty) {
+      selectedModel = m[0];
+    }
+    notifyListeners();
+  }
+
+  void selectModel(String model) {
+    selectedModel = model;
+    notifyListeners();
+  }
+}*/
+
+
+//codigo atual
+import 'package:flutter/material.dart';
+
+class ModelProvider extends ChangeNotifier {
+  List<String> models = [];
+  String selectedModel = '';
+
+  void setModels(List<String> m) {
+    models = m;
+    if (m.isNotEmpty && selectedModel.isEmpty) {
+      selectedModel = m[0];
+    }
+    notifyListeners();
+  }
+
+  void selectModel(String model) {
+    selectedModel = model;
+    notifyListeners();
+  }
+}
+
+
+project_state.dart
+// providers/project_state.dart
+import 'package:flutter/material.dart';
+
+class ProjectState extends ChangeNotifier {
+  String? rootPath;
+  Map<String, String> indexedFiles = {};
+
+  void setRoot(String path) {
+    rootPath = path;
+    indexedFiles.clear();
+    print('[DEBUG][ProjectState] RootPath setado: $rootPath');
+    notifyListeners();
+  }
+
+  void setIndex(Map<String, String> files) {
+    indexedFiles = files;
+    print('[DEBUG][ProjectState] IndexedFiles atualizado: ${indexedFiles.keys.toList()}');
+    notifyListeners();
+  }
+
+
+  bool get isIndexed => indexedFiles.isNotEmpty;
+}
+
+
+session_state.dart
+import 'package:flutter/foundation.dart';
+
+class ChatMessage {
+  final String role;    // 'user' | 'assistant' | 'system'
+  final String content;
+  ChatMessage(this.role, this.content);
+}
+
+class SessionState extends ChangeNotifier {
+  String projectId = 'default';
+  String? sessionId;
+  String model = 'llama3';
+  final List<ChatMessage> messages = [];
+  bool streaming = false;
+
+  void setModel(String m) {
+    print('[DEBUG] setModel: $m');
+    model = m;
+    notifyListeners();
+  }
+
+  void setSession({required String proj, required String sess}) {
+    print('[DEBUG] setSession: proj=$proj sess=$sess');
+    projectId = proj;
+    sessionId = sess;
+    messages.clear();
+    streaming = false;
+    notifyListeners();
+  }
+
+  void addUser(String text) {
+    print('[DEBUG] addUser: $text');
+    messages.add(ChatMessage('user', text));
+    notifyListeners();
+  }
+
+  void startAssistant() {
+    print('[DEBUG] startAssistant');
+    messages.add(ChatMessage('assistant', ''));
+    streaming = true;
+    notifyListeners();
+  }
+
+  void appendAssistant(String delta) {
+    print('[DEBUG] appendAssistant: $delta');
+    if (messages.isEmpty) return;
+    final last = messages.last;
+    if (last.role != 'assistant') return;
+    final merged = ChatMessage('assistant', last.content + delta);
+    messages[messages.length - 1] = merged;
+    notifyListeners();
+  }
+
+  void endStream() {
+    print('[DEBUG] endStream');
+    streaming = false;
+    notifyListeners();
+  }
+
+  void removeAt(int index) {
+    print('[DEBUG] removeAt: $index');
+    if (index < 0 || index >= messages.length) return;
+    messages.removeAt(index);
+    notifyListeners();
+  }
+
+  void clearMessages() {
+    print('[DEBUG] clearMessages');
+    messages.clear();
+    streaming = false;
+    notifyListeners();
+  }
+}
+
+
+github_theme.dart
+import 'package:flutter/material.dart';
+
+// Tema para destaque de sintaxe em modo escuro
+final Map<String, TextStyle> githubTheme = {
+  'root': const TextStyle(backgroundColor: Color(0xFF0F1115), color: Color(0xFFE6EDF3)),
+  'keyword': const TextStyle(color: Color(0xFFC678DD)),
+  'selector-tag': const TextStyle(color: Color(0xFFC678DD)),
+  'literal': const TextStyle(color: Color(0xFFC678DD)),
+  'section': const TextStyle(color: Color(0xFFC678DD)),
+  'link': const TextStyle(color: Color(0xFF61AFEF)),
+  'string': const TextStyle(color: Color(0xFF98C379)),
+  'title': const TextStyle(color: Color(0xFF61AFEF)),
+  'name': const TextStyle(color: Color(0xFF61AFEF)),
+  'type': const TextStyle(color: Color(0xFF61AFEF)),
+  'attribute': const TextStyle(color: Color(0xFF61AFEF)),
+  'symbol': const TextStyle(color: Color(0xFF56B6C2)),
+  'bullet': const TextStyle(color: Color(0xFF56B6C2)),
+  'addition': const TextStyle(color: Color(0xFF56B6C2)),
+  'variable': const TextStyle(color: Color(0xFF56B6C2)),
+  'template-variable': const TextStyle(color: Color(0xFF56B6C2)),
+  'comment': const TextStyle(color: Color(0xFF7F848E)),
+  'quote': const TextStyle(color: Color(0xFF7F848E)),
+  'deletion': const TextStyle(color: Color(0xFFE06C75)),
+  'number': const TextStyle(color: Color(0xFFD19A66)),
+  'meta': const TextStyle(color: Color(0xFFD19A66)),
+  'selector-id': const TextStyle(color: Color(0xFFD19A66)),
+  'selector-class': const TextStyle(color: Color(0xFFD19A66)),
+  'emphasis': const TextStyle(fontStyle: FontStyle.italic),
+  'strong': const TextStyle(fontWeight: FontWeight.bold),
+};
+
+// Alias explícito, caso queira referenciar diretamente
+final Map<String, TextStyle> githubDarkTheme = githubTheme;
+
+
+file_service.dart
+
+import 'dart:io';
+import 'package:path/path.dart' as p;
+
+/// Serviço simples de operações em arquivos/pastas com backup básico.
+/// - backups são guardados em <projectRoot>/.mkideia_backups/<timestamp>/
+class FileService {
+  FileService();
+
+  /// Cria um arquivo (e diretório pai se necessário) com conteúdo inicial.
+  /// Retorna true se criado/existente com sucesso.
+  Future<bool> createFile(String path, {String content = ''}) async {
+    final f = File(path);
+    final dir = f.parent;
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    if (!await f.exists()) {
+      await f.writeAsString(content);
+      return true;
+    } else {
+      // já existe: não sobrescreve
+      return false;
+    }
+  }
+
+  /// Cria pasta (recursiva). Retorna true se criada/existente.
+  Future<bool> createFolder(String path) async {
+    final d = Directory(path);
+    if (!await d.exists()) {
+      await d.create(recursive: true);
+      return true;
+    }
+    return false;
+  }
+
+  /// Renomeia/Move arquivo ou pasta.
+  Future<void> rename(String oldPath, String newPath) async {
+    final e = FileSystemEntity.typeSync(oldPath);
+    if (e == FileSystemEntityType.directory) {
+      final dir = Directory(oldPath);
+      await dir.rename(newPath);
+    } else {
+      final f = File(oldPath);
+      await f.rename(newPath);
+    }
+  }
+
+  /// Apaga arquivo ou pasta (recursivo para pastas).
+  Future<void> delete(String path) async {
+    final t = FileSystemEntity.typeSync(path);
+    if (t == FileSystemEntityType.directory) {
+      final d = Directory(path);
+      if (await d.exists()) await d.delete(recursive: true);
+    } else {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    }
+  }
+
+  /// Escreve conteúdo em arquivo. Faz backup antes (se arquivo existir).
+  /// Retorna old content (antes da escrita) para diffs/undo.
+  Future<String?> writeFile(String path, String content) async {
+    final f = File(path);
+    String? old;
+    if (await f.exists()) {
+      old = await f.readAsString();
+      await _backupFile(path, old);
+    } else {
+      final dir = f.parent;
+      if (!await dir.exists()) await dir.create(recursive: true);
+      old = null;
+    }
+    await f.writeAsString(content);
+    return old;
+  }
+
+  /// Copia recursivamente uma pasta (use para "Salvar projeto como").
+  Future<void> copyDirectory(String srcPath, String destPath) async {
+    final src = Directory(srcPath);
+    if (!await src.exists()) throw Exception('Origem não encontrada: $srcPath');
+    final dest = Directory(destPath);
+    if (!await dest.exists()) await dest.create(recursive: true);
+
+    await for (final entity in src.list(recursive: true, followLinks: false)) {
+      final relative = p.relative(entity.path, from: srcPath);
+      final newPath = p.join(destPath, relative);
+      if (entity is Directory) {
+        final d = Directory(newPath);
+        if (!await d.exists()) await d.create(recursive: true);
+      } else if (entity is File) {
+        final f = File(newPath);
+        if (!await f.parent.exists()) await f.parent.create(recursive: true);
+        await entity.copy(newPath);
+      }
+    }
+  }
+
+  /// Faz backup de um arquivo para .mkideia_backups/<timestamp>/<relpath>
+  Future<void> _backupFile(String path, String content) async {
+    try {
+      final file = File(path);
+      final projectRoot = _findProjectRoot(path) ?? file.parent.path;
+      final now = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final backupDir = Directory(p.join(projectRoot, '.mkideia_backups', now));
+      if (!await backupDir.exists()) await backupDir.create(recursive: true);
+      final rel = p.relative(path, from: projectRoot);
+      final backupPath = p.join(backupDir.path, rel);
+      final backupFile = File(backupPath);
+      if (!await backupFile.parent.exists()) await backupFile.parent.create(recursive: true);
+      await backupFile.writeAsString(content);
+    } catch (_) {
+      // não estourar exceção de backup
+    }
+  }
+
+  /// Tenta localizar a raiz do projeto olhando para a pasta que contém 'pubspec.yaml'
+  /// sobe até encontrar ou retorna null.
+  String? _findProjectRoot(String startPath) {
+    var dir = Directory(startPath);
+    if (!dir.existsSync()) dir = dir.parent;
+    while (dir.path != dir.parent.path) {
+      final pub = File(p.join(dir.path, 'pubspec.yaml'));
+      if (pub.existsSync()) return dir.path;
+      dir = dir.parent;
+    }
+    return null;
+  }
+
+  /// Gera um diff simples (linhas removidas/adicionadas) entre old/new
+  Map<String, List<String>> simpleLineDiff(String? oldStr, String newStr) {
+    final oldLines = (oldStr ?? '').split('\n');
+    final newLines = newStr.split('\n');
+    final removed = <String>[];
+    final added = <String>[];
+
+    final oldSet = oldLines.toSet();
+    final newSet = newLines.toSet();
+
+    for (final l in oldLines) {
+      if (!newSet.contains(l)) removed.add(l);
+    }
+    for (final l in newLines) {
+      if (!oldSet.contains(l)) added.add(l);
+    }
+    return {'removed': removed, 'added': added};
+  }
+}
+
+
+language_config.dart
+import 'package:highlight/highlight.dart';
+import 'package:highlight/languages/cpp.dart';
+import 'package:highlight/languages/css.dart';
+import 'package:highlight/languages/dart.dart';
+import 'package:highlight/languages/java.dart';
+import 'package:highlight/languages/javascript.dart';
+import 'package:highlight/languages/json.dart';
+import 'package:highlight/languages/markdown.dart';
+import 'package:highlight/languages/php.dart';
+import 'package:highlight/languages/python.dart';
+import 'package:highlight/languages/xml.dart';
+import 'package:highlight/languages/yaml.dart';
+
+/// Mapeamento de extensões para linguagens
+final Map<String, Mode> languageMap = {
+  '.dart': dart,
+  '.js': javascript,
+  '.py': python,
+  '.json': json,
+  '.html': xml,   // HTML usa o parser XML
+  '.css': css,
+  '.java': java,
+  '.cpp': cpp,
+  '.php': php,
+  '.md': markdown,
+  '.yml': yaml,
+  '.yaml': yaml,
+  '.xml': xml,
+};
+
+/// Modo padrão para arquivos desconhecidos
+final Mode plainText = Mode(
+  contains: [],
+  illegal: null,
+);
+
+/// Detecta a linguagem pelo caminho do arquivo
+Mode getLanguageForPath(String path) {
+  final ext = '.' + path.split('.').last.toLowerCase();
+  return languageMap[ext] ?? plainText; // retorna plainText se não encontrar
+}
+
+
+
+plano_mestre_controller.dart
+esta vazio (não existe codigos)
+
+
+plano_mestre_widget.dart
+mport 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+
+class PlanoMestreWidget extends StatefulWidget {
+  const PlanoMestreWidget({super.key});
+
+  @override
+  State<PlanoMestreWidget> createState() => _PlanoMestreWidgetState();
+}
+
+class _PlanoMestreWidgetState extends State<PlanoMestreWidget> {
+  final TextEditingController _controller = TextEditingController();
+  String? _filePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlanoMestre();
+  }
+
+  Future<void> _loadPlanoMestre() async {
+    // 👉 por enquanto: arquivo salvo dentro do diretório do usuário
+    final dir = Directory.current.path; // TODO: trocar para diretório do projeto aberto
+    final file = File(p.join(dir, "plano_mestre.md"));
+
+    if (await file.exists()) {
+      _controller.text = await file.readAsString();
+      _filePath = file.path;
+    } else {
+      _controller.text = "# Plano Mestre\n\nDescreva aqui sua aplicação...";
+      await file.writeAsString(_controller.text);
+      _filePath = file.path;
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _savePlanoMestre() async {
+    if (_filePath == null) return;
+    final file = File(_filePath!);
+    await file.writeAsString(_controller.text);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Plano Mestre salvo com sucesso")),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Plano Mestre"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _savePlanoMestre,
+          )
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.multiline,
+          maxLines: null,
+          expands: true,
+          style: const TextStyle(fontSize: 16),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "Digite o plano mestre em formato Markdown",
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+agentes_page.dart
+import 'package:flutter/material.dart';
+import 'plano_mestre/plano_mestre_widget.dart';
+
+class AgentesPage extends StatelessWidget {
+  const AgentesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Agentes"),
+        backgroundColor: const Color(0xFF141516),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: const Icon(Icons.description, color: Colors.blue),
+              title: const Text("Plano Mestre"),
+              subtitle: const Text("Documento base do projeto (.md)"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlanoMestreWidget()),
+                );
+              },
+            ),
+          ),
+          // 👉 futuramente: outros agentes aqui (GBB, contexto, etc.)
+        ],
+      ),
+    );
+  }
+}
+
+
+
+project_context_agent.dart
+import 'dart:convert';
+import 'dart:io';
+import 'package:path/path.dart' as p;
+
+class ProjectContextAgent {
+  final String projectId;
+  final String projectRoot;
+
+  ProjectContextAgent(this.projectId, {this.projectRoot = "/home/mk/MKIideiaOficial"});
+
+  String get _contextFilePath {
+    final base = p.join('/home/mk/mkide_ia/data/indexes', projectId);
+    Directory(base).createSync(recursive: true);
+    return p.join(base, 'context.json');
+  }
+
+  /// Novo método: percorre o diretório inteiro e indexa todos os arquivos.
+  Future<void> indexProjectFiles() async {
+    final dir = Directory(projectRoot);
+    if (!dir.existsSync()) {
+      print('[ProjectContextAgent][ERRO] Diretório do projeto não existe: $projectRoot');
+      return;
+    }
+
+    final Map<String, String> index = {};
+    await for (var entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        try {
+          final relPath = p.relative(entity.path, from: projectRoot);
+          final content = await entity.readAsString();
+          index[relPath] = content;
+        } catch (e) {
+          print('[ProjectContextAgent][WARN] Falha ao ler ${entity.path}: $e');
+        }
+      }
+    }
+
+    await saveContext(index);
+    print('[ProjectContextAgent] Indexação concluída: ${index.length} arquivos.');
+  }
+
+  Future<void> saveContext(Map<String, String> index) async {
+    final f = File(_contextFilePath);
+    await f.writeAsString(jsonEncode(index), flush: true);
+    print('[DEBUG][ProjectContextAgent] Contexto salvo em $_contextFilePath');
+    print('[DEBUG][ProjectContextAgent] Arquivos indexados: ${index.keys.toList()}');
+  }
+
+  Future<Map<String, String>> loadContext() async {
+    final f = File(_contextFilePath);
+    if (!f.existsSync()) return {};
+    try {
+      final raw = await f.readAsString();
+      final decoded = jsonDecode(raw);
+
+      final flattened = <String, String>{};
+      void flatten(dynamic obj, [String prefix = '']) {
+        if (obj is Map) {
+          obj.forEach((k, v) {
+            flatten(v, prefix.isEmpty ? k : '$prefix.$k');
+          });
+        } else if (obj is List) {
+          for (var i = 0; i < obj.length; i++) {
+            flatten(obj[i], '$prefix[$i]');
+          }
+        } else {
+          flattened[prefix] = obj.toString();
+        }
+      }
+
+      flatten(decoded);
+
+      print('[ProjectContextAgent] Arquivos carregados: ${flattened.keys}');
+      return flattened;
+    } catch (e) {
+      print('[ProjectContextAgent] Erro ao carregar contexto: $e');
+      return {};
+    }
+  }
+
+  Future<List<Map<String, String>>> injectContextIntoMessages(List<Map<String, String>> messages) async {
+    final context = await loadContext();
+    if (context.isEmpty) {
+      print('[ProjectContextAgent][DEBUG] Nenhum contexto encontrado, mensagens enviadas sem system.');
+      return messages;
+    }
+
+    final summary = context.entries.map((e) => '${e.key}: ${e.value}').join('\n');
+
+    final systemMessage = {
+      'role': 'system',
+      'content': 'Contexto do projeto:\n$summary',
+    };
+
+    print('==============================');
+    print('[ProjectContextAgent][DEBUG] System message gerado para IA:');
+    print(systemMessage['content']);
+    print('==============================');
+
+    return [systemMessage, ...messages];
+  }
+
+  Future<void> clearContext() async {
+    final f = File(_contextFilePath);
+    if (f.existsSync()) {
+      await f.delete();
+      print('[ProjectContextAgent] Contexto removido em $_contextFilePath');
+    }
+  }
+}
+
+
+chat_action_bar.dart
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../api/api_service.dart';
+import '../../controllers/editor_controller.dart';
+import '../agentes/agentes_page.dart';
+import 'chat_agentes/project_context_agent.dart';
+
+class ChatActionBar extends StatefulWidget {
+  final VoidCallback onClearMessages;
+  final String? Function() getLastAssistantText;
+  final ValueChanged<bool> onConnectionChange;
+  final bool useLocal;
+
+  /// ✅ Novo: função para pegar caminho do projeto aberto
+  final String? Function() getProjectRootPath;
+
+  const ChatActionBar({
+    super.key,
+    required this.onClearMessages,
+    required this.getLastAssistantText,
+    required this.onConnectionChange,
+    required this.useLocal,
+    required this.getProjectRootPath,
+  });
+
+  @override
+  State<ChatActionBar> createState() => _ChatActionBarState();
+}
+
+class _ChatActionBarState extends State<ChatActionBar> {
+  final Map<String, List<String>> _undoStacks = {};
+  final Map<String, List<String>> _redoStacks = {};
+
+  bool _projectIndexed = false;
+  final Map<String, String> _projectIndex = {};
+  ProjectContextAgent? _contextAgent;
+  String? _currentProjectId;
+
+  Future<void> _toggleProjectIndex() async {
+    final dir = widget.getProjectRootPath();
+    print('[DEBUG][ChatActionBar] _toggleProjectIndex chamado');
+    print('[DEBUG][ChatActionBar] getProjectRootPath() retornou: $dir');
+    print('[DEBUG][ChatActionBar] _projectIndexed = $_projectIndexed');
+
+    if (dir == null || dir.isEmpty) {
+      print('[DEBUG][ChatActionBar] Nenhum projeto aberto. Abortando indexação.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Abra um projeto antes de indexar')),
+      );
+      return;
+    }
+
+    if (!_projectIndexed) {
+      print('[DEBUG][ChatActionBar] Indexando projeto...');
+      _projectIndex.clear();
+      await _indexDirectory(dir);
+
+      _currentProjectId = dir.split(Platform.pathSeparator).last;
+      print('[DEBUG][ChatActionBar] _currentProjectId = $_currentProjectId');
+
+      _contextAgent = ProjectContextAgent(_currentProjectId!);
+      await _contextAgent?.saveContext(_projectIndex);
+
+      setState(() => _projectIndexed = true);
+      print('[DEBUG][ChatActionBar] Projeto indexado com sucesso.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projeto indexado')),
+      );
+    } else {
+      print('[DEBUG][ChatActionBar] Desativando indexação...');
+      _projectIndex.clear();
+      await _contextAgent?.clearContext();
+      _contextAgent = null;
+      _currentProjectId = null;
+      setState(() => _projectIndexed = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Indexação desativada')),
+      );
+    }
+  }
+
+  Future<void> _indexDirectory(String dir) async {
+    final entityList = Directory(dir).listSync(recursive: true);
+    for (var entity in entityList) {
+      if (entity is File) {
+        try {
+          final content = entity.readAsStringSync();
+          _projectIndex[entity.path] =
+              content.substring(0, content.length.clamp(0, 500));
+        } catch (_) {}
+      }
+    }
+  }
+
+  // ✅ Novo helper para injetar contexto no prompt da IA
+  Future<List<Map<String, String>>> injectContext(List<Map<String, String>> messages) async {
+    if (_contextAgent == null) return messages;
+    return await _contextAgent!.injectContextIntoMessages(messages);
+  }
+
+  // ----------------- Helpers de UI -----------------
+  Future<bool> _confirm(String title, String message) async {
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Confirmar')),
+        ],
+      ),
+    );
+    return res == true;
+  }
+
+  Future<String?> _promptForText(String title, {String hint = '', String initial = ''}) async {
+    final ctrl = TextEditingController(text: initial);
+    final res = await showDialog<String?>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(hintText: hint),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(null), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.of(c).pop(ctrl.text.trim()), child: const Text('OK')),
+        ],
+      ),
+    );
+    return res;
+  }
+
+  void _pushUndo(String path, String previousContent) {
+    final stack = _undoStacks.putIfAbsent(path, () => []);
+    stack.add(previousContent);
+    _redoStacks.remove(path);
+  }
+
+  void _pushRedo(String path, String content) {
+    final stack = _redoStacks.putIfAbsent(path, () => []);
+    stack.add(content);
+  }
+
+  Future<void> _notifyEditorIfProviderExists(String path, String content) async {
+    try {
+      final ec = Provider.of<EditorController>(context, listen: false);
+      ec.updateText(content);
+    } catch (_) {}
+  }
+
+  // ----------------- Operações de arquivo -----------------
+  Future<void> _undoFile(String path) async {
+    try {
+      final uStack = _undoStacks[path];
+      if (uStack == null || uStack.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nada para desfazer')));
+        return;
+      }
+      final current = File(path).existsSync() ? File(path).readAsStringSync() : '';
+      final last = uStack.removeLast();
+      _pushRedo(path, current);
+      File(path).writeAsStringSync(last);
+      await _notifyEditorIfProviderExists(path, last);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Undo aplicado')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro no undo: $e')));
+    }
+  }
+
+  Future<void> _redoFile(String path) async {
+    try {
+      final rStack = _redoStacks[path];
+      if (rStack == null || rStack.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nada para refazer')));
+        return;
+      }
+      final current = File(path).existsSync() ? File(path).readAsStringSync() : '';
+      final last = rStack.removeLast();
+      _pushUndo(path, current);
+      File(path).writeAsStringSync(last);
+      await _notifyEditorIfProviderExists(path, last);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redo aplicado')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro no redo: $e')));
+    }
+  }
+
+  Future<void> _createFile() async {
+    String? dir = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Escolha pasta onde criar o arquivo');
+    if (dir == null) return;
+
+    final filename = await _promptForText('Nome do arquivo', hint: 'ex: novo_arquivo.txt', initial: 'novo_arquivo.txt');
+    if (filename == null || filename.isEmpty) return;
+
+    final fullPath = p.join(dir, filename);
+    if (File(fullPath).existsSync()) {
+      final overwrite = await _confirm('Arquivo existe', 'Arquivo já existe. Deseja sobrescrever?');
+      if (!overwrite) return;
+    }
+
+    String initialContent = '';
+    final candidate = widget.getLastAssistantText.call();
+    if (candidate != null && candidate.trim().isNotEmpty) {
+      initialContent = candidate;
+    }
+
+    try {
+      _pushUndo(fullPath, File(fullPath).existsSync() ? File(fullPath).readAsStringSync() : '');
+      File(fullPath).writeAsStringSync(initialContent);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Arquivo criado: ${p.basename(fullPath)}')));
+      await _notifyEditorIfProviderExists(fullPath, initialContent);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro criando arquivo: $e')));
+    }
+  }
+
+  Future<void> _createFolder() async {
+    final dir = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Escolha pasta onde criar a nova pasta');
+    if (dir == null) return;
+
+    final folderName = await _promptForText('Nome da pasta', hint: 'ex: nova_pasta', initial: 'nova_pasta');
+    if (folderName == null || folderName.isEmpty) return;
+
+    final fullPath = p.join(dir, folderName);
+    if (Directory(fullPath).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pasta já existe')));
+      return;
+    }
+
+    try {
+      Directory(fullPath).createSync(recursive: true);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pasta criada: $fullPath')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro criando pasta: $e')));
+    }
+  }
+
+  Future<void> _deletePath() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+    final confirm = await _confirm('Confirmar exclusão', 'Deseja excluir permanentemente: ${p.basename(path)} ?');
+    if (!confirm) return;
+
+    try {
+      if (File(path).existsSync()) {
+        _pushUndo(path, File(path).readAsStringSync());
+        File(path).deleteSync();
+      } else if (Directory(path).existsSync()) {
+        _pushUndo(path, '<<directory-deleted>>');
+        Directory(path).deleteSync(recursive: true);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Excluído: ${p.basename(path)}')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
+    }
+  }
+
+  Future<void> _renamePath() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+    if (result == null || result.files.single.path == null) return;
+
+    final oldPath = result.files.single.path!;
+    final newName = await _promptForText('Novo nome', hint: 'novo_nome.ext', initial: p.basename(oldPath));
+    if (newName == null || newName.isEmpty) return;
+
+    final newPath = p.join(p.dirname(oldPath), newName);
+    try {
+      if (File(oldPath).existsSync()) {
+        _pushUndo(oldPath, File(oldPath).readAsStringSync());
+        File(oldPath).renameSync(newPath);
+      } else if (Directory(oldPath).existsSync()) {
+        _pushUndo(oldPath, '<<directory-renamed-from-${p.basename(oldPath)}>>');
+        Directory(oldPath).renameSync(newPath);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Renomeado para: $newPath')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro renomeando: $e')));
+    }
+  }
+
+  Future<void> _applyAIPatchToFile() async {
+    final lastAssistant = widget.getLastAssistantText.call();
+    if (lastAssistant == null || lastAssistant.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sem mensagens do assistant para aplicar')));
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+    if (result == null || result.files.single.path == null) return;
+
+    final targetPath = result.files.single.path!;
+    final confirm = await _confirm(
+      'Aplicar alteração',
+      'Deseja aplicar o conteúdo do assistant ao arquivo ${p.basename(targetPath)} ?',
+    );
+    if (!confirm) return;
+
+    try {
+      final previous = File(targetPath).existsSync() ? File(targetPath).readAsStringSync() : '';
+      _pushUndo(targetPath, previous);
+      File(targetPath).writeAsStringSync(lastAssistant);
+      await _notifyEditorIfProviderExists(targetPath, lastAssistant);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Conteúdo aplicado a ${p.basename(targetPath)}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro aplicando patch: $e')));
+    }
+  }
+
+  // ----------------- UI -----------------
+  Widget _roundBtn(IconData icon, String tooltip, Future<void> Function()? onTap,
+      {bool active = false}) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap == null ? null : () async => await onTap(),
+        borderRadius: BorderRadius.circular(28),
+        child: CircleAvatar(
+          radius: 22,
+          backgroundColor: active ? Colors.green : const Color(0xFF1A1B1C),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final api = Provider.of<HybridApiService>(context, listen: false);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFF141516),
+        border: Border(
+          top: BorderSide(color: Color(0xFF222426)),
+          bottom: BorderSide(color: Color(0xFF222426)),
+        ),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        children: [
+          _roundBtn(Icons.chat_bubble_outline, 'Nova conversa', () async {
+            widget.onClearMessages();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nova conversa iniciada')));
+          }),
+
+          _roundBtn(Icons.smart_toy_outlined, 'Executar agente', () async {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AgentesPage()),
+            );
+
+            // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agente executando (placeholder)')));
+          }),
+
+          _roundBtn(Icons.push_pin_outlined, 'Fixar resumo', () async {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Resumo fixado (placeholder)')));
+          }),
+
+          _roundBtn(Icons.folder_open, 'Indexar projeto', _toggleProjectIndex, active: _projectIndexed),
+
+          _roundBtn(Icons.language, 'Ativar Internet', () async {
+            try {
+              api.useLocal = false;
+              widget.onConnectionChange(false);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Internet ativada (modo HTTP)')));
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao ativar internet: $e')));
+            }
+          }),
+          _roundBtn(Icons.refresh, 'Reindexar', () async {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reindexando (placeholder)')));
+          }),
+          _roundBtn(Icons.image_outlined, 'Importar imagem', () async {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Importar imagem (placeholder)')));
+          }),
+          _roundBtn(Icons.auto_fix_high, 'Wizards', () async {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wizards (placeholder)')));
+          }),
+          _roundBtn(Icons.note_add, 'Criar arquivo', _createFile),
+          _roundBtn(Icons.create_new_folder, 'Criar pasta', _createFolder),
+          _roundBtn(Icons.delete_outline, 'Excluir arquivo/pasta', _deletePath),
+          _roundBtn(Icons.drive_file_rename_outline, 'Renomear', _renamePath),
+          _roundBtn(Icons.code, 'Aplicar conteúdo (IA) a arquivo', _applyAIPatchToFile),
+          _roundBtn(Icons.undo, 'Undo (arquivo)', () async {
+            final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+            if (result == null || result.files.single.path == null) return;
+            await _undoFile(result.files.single.path!);
+          }),
+          _roundBtn(Icons.redo, 'Redo (arquivo)', () async {
+            final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+            if (result == null || result.files.single.path == null) return;
+            await _redoFile(result.files.single.path!);
+          }),
+        ],
+      ),
+    );
+  }
+} 
+
+
+
+chat_header.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../api/api_service.dart';
+import '../../providers/model_provider.dart';
+
+class ChatHeader extends StatelessWidget {
+  final bool useLocal;
+  final bool streaming;
+  final VoidCallback onOpenChat;
+  final VoidCallback onStopStream;
+  final ValueChanged<bool> onConnectionChange;
+
+  const ChatHeader({
+    super.key,
+    required this.useLocal,
+    required this.streaming,
+    required this.onOpenChat,
+    required this.onStopStream,
+    required this.onConnectionChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final modelProv = Provider.of<ModelProvider>(context);
+    final api = Provider.of<HybridApiService>(context, listen: false);
+
+    return Column(
+      children: [
+        // Linha 1: Conexão (Local/Servidor)
+        Container(
+          alignment: Alignment.centerLeft,
+          color: const Color(0xFF0F1115),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              const Text('Conexão:', style: TextStyle(color: Colors.white70)),
+              const SizedBox(width: 12),
+              DropdownButton<bool>(
+                value: useLocal,
+                dropdownColor: const Color(0xFF1C212B),
+                items: const [
+                  DropdownMenuItem(value: true, child: Text("Local (Terminal)")),
+                  DropdownMenuItem(value: false, child: Text("Servidor HTTP")),
+                ],
+                onChanged: (v) async {
+                  if (v == null) return;
+                  try {
+                    // atualiza o serviço e avisa o chat_page via callback
+                    api.useLocal = v;
+                    onConnectionChange(v);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(v ? 'Conexão: Local' : 'Conexão: Servidor HTTP')),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao alternar conexão: $e')),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              // opcional: botão para forçar reload dos modelos
+              IconButton(
+                tooltip: 'Recarregar modelos',
+                icon: const Icon(Icons.refresh, color: Colors.white70),
+                onPressed: () async {
+                  try {
+                    final models = await api.getModels();
+                    modelProv.setModels(models);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Modelos recarregados')),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro carregando modelos: $e')),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // Linha 2: Seletor de modelo + Abrir Chat + Parar
+        Container(
+          alignment: Alignment.centerLeft,
+          color: const Color(0xFF0F1115),
+          height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              const Text('Modelo:', style: TextStyle(color: Colors.white70)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButton<String>(
+                  value: modelProv.selectedModel.isEmpty ? null : modelProv.selectedModel,
+                  dropdownColor: const Color(0xFF1C212B),
+                  items: modelProv.models
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) modelProv.selectModel(v);
+                  },
+                  isExpanded: true,
+                  hint: const Text('Selecione um modelo'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  if (modelProv.selectedModel.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Selecione um modelo primeiro')),
+                    );
+                  } else {
+                    onOpenChat();
+                  }
+                },
+                child: const Text('Abrir Chat'),
+              ),
+              if (streaming)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.stop, color: Colors.red),
+                    label: const Text('Parar'),
+                    onPressed: onStopStream,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+action_bar.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import '../controllers/FileSystemController.dart';
+import '../controllers/editor_controller.dart';
+import '../models/fs_node.dart';
+
+class EditorActionBar extends StatefulWidget implements PreferredSizeWidget {
+  // Callbacks para sincronizar estado com a HomePage
+  final ValueChanged<FsNode?> onRootNodeChanged;
+  final ValueChanged<String?> onSelectedPathChanged;
+  final ValueChanged<FileSystemEntity?> onSelectedFileChanged;
+  final ValueChanged<EditorController?> onEditorControllerChanged;
+  final ValueChanged<bool> onIsEditingChanged;
+  final ValueChanged<FileSystemController?> onFsControllerChanged;
+
+  /// Funções fornecidas pela HomePage
+  final EditorController? Function() getActiveEditorController;
+  final File? Function() getActiveFile;
+
+  const EditorActionBar({
+    super.key,
+    required this.onRootNodeChanged,
+    required this.onSelectedPathChanged,
+    required this.onSelectedFileChanged,
+    required this.onEditorControllerChanged,
+    required this.onIsEditingChanged,
+    required this.onFsControllerChanged,
+    required this.getActiveEditorController,
+    required this.getActiveFile,
+  });
+
+  @override
+  State<EditorActionBar> createState() => EditorActionBarState();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(40);
+}
+
+class EditorActionBarState extends State<EditorActionBar> {
+  FsNode? _rootNode;
+  String? _selectedPath;
+  FileSystemEntity? _selectedFile;
+  bool _isEditing = false;
+  FileSystemController? _fsController;
+
+  // =============== Helpers ===============
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<FsNode> _buildFsNode(Directory dir) async {
+    final children = <FsNode>[];
+    for (final f in dir.listSync()) {
+      if (f is Directory) {
+        final child = await _buildFsNode(f);
+        children.add(child);
+      } else if (f is File) {
+        children.add(FsNode(
+          name: f.uri.pathSegments.last,
+          path: f.path,
+          isDir: false,
+        ));
+      }
+    }
+    children.sort((a, b) {
+      if (a.isDir && !b.isDir) return -1;
+      if (!a.isDir && b.isDir) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    final name = dir.path.split(Platform.pathSeparator).last.isNotEmpty
+        ? dir.path.split(Platform.pathSeparator).last
+        : dir.path;
+    return FsNode(name: name, path: dir.path, isDir: true, children: children);
+  }
+
+  void _syncToHost() {
+    widget.onRootNodeChanged(_rootNode);
+    widget.onSelectedPathChanged(_selectedPath);
+    widget.onSelectedFileChanged(_selectedFile);
+    widget.onEditorControllerChanged(widget.getActiveEditorController());
+    widget.onIsEditingChanged(_isEditing);
+    widget.onFsControllerChanged(_fsController);
+  }
+
+  // =============== Métodos Públicos ===============
+
+  Future<void> openFolder() async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory == null) return;
+
+    _fsController = FileSystemController(selectedDirectory);
+    final tree = await _buildFsNode(Directory(selectedDirectory));
+
+    setState(() {
+      _rootNode = tree;
+      _selectedPath = null;
+      _selectedFile = null;
+      _isEditing = false;
+    });
+
+    _syncToHost();
+  }
+
+  Future<void> refreshTree() async {
+    if (_fsController == null) return;
+    final tree = await _buildFsNode(Directory(_fsController!.rootPath));
+    setState(() {
+      _rootNode = tree;
+    });
+    _syncToHost();
+  }
+
+  Future<void> openFileWithDialog() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    final f = File(path);
+    if (!f.existsSync()) return;
+    setState(() {
+      _selectedFile = f;
+      _selectedPath = path;
+    });
+    _syncToHost();
+  }
+
+  void saveFile() {
+    final editor = widget.getActiveEditorController();
+    final file = widget.getActiveFile();
+
+    if (file != null && editor != null) {
+      try {
+        file.writeAsStringSync(editor.text);
+        editor.commitEditingSession();
+        setState(() => _isEditing = false);
+        _syncToHost();
+        _showSnack('Arquivo salvo com sucesso!');
+      } catch (e) {
+        _showSnack('Erro ao salvar arquivo: $e');
+      }
+    } else {
+      _showSnack('Nenhum arquivo ativo para salvar.');
+    }
+  }
+
+  Future<void> saveFileAs() async {
+    final editor = widget.getActiveEditorController();
+    if (editor == null) return;
+    String? savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Salvar arquivo como',
+      fileName: widget.getActiveFile()?.uri.pathSegments.last ?? 'novo_arquivo.txt',
+    );
+    if (savePath == null) return;
+
+    try {
+      File(savePath).writeAsStringSync(editor.text);
+      setState(() {
+        _selectedPath = savePath;
+        _selectedFile = File(savePath);
+        _isEditing = false;
+      });
+      editor.commitEditingSession();
+      _syncToHost();
+      _showSnack('Arquivo salvo com sucesso!');
+    } catch (e) {
+      _showSnack('Erro ao salvar arquivo: $e');
+    }
+  }
+
+  void undo() {
+    final editor = widget.getActiveEditorController();
+    editor?.undo();
+    setState(() => _isEditing = true);
+    _syncToHost();
+  }
+
+  void redo() {
+    final editor = widget.getActiveEditorController();
+    editor?.redo();
+    setState(() => _isEditing = true);
+    _syncToHost();
+  }
+
+  // =============== UI ===============
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: const Color(0xFF0F1115),
+      toolbarHeight: 40,
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.folder_open, color: Colors.white),
+            tooltip: 'Abrir Pasta',
+            onPressed: openFolder,
+          ),
+          IconButton(
+            icon: const Icon(Icons.insert_drive_file, color: Colors.white),
+            tooltip: 'Abrir Arquivo',
+            onPressed: openFileWithDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.save, color: Colors.white),
+            tooltip: 'Salvar',
+            onPressed: saveFile,
+          ),
+          IconButton(
+            icon: const Icon(Icons.save_as, color: Colors.white),
+            tooltip: 'Salvar Como',
+            onPressed: saveFileAs,
+          ),
+          IconButton(
+            icon: const Icon(Icons.undo, color: Colors.white),
+            tooltip: 'Desfazer',
+            onPressed: undo,
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo, color: Colors.white),
+            tooltip: 'Refazer',
+            onPressed: redo,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+app_bar_widget.dart
+codigo comentando e sem uso
+
+/*
+import 'package:flutter/material.dart';
+
+class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+
+  const AppBarWidget({super.key, required this.title});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(32);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      title: Text(title, style: const TextStyle(fontSize: 14, color: Colors.white)),
+      backgroundColor: const Color(0xFF0F1112),
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.help_outline, color: Colors.white54),
+          tooltip: 'Ajuda',
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ajuda não implementada ainda')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+*/
+
+
+
+file_context_menu.dart
+
+import 'package:flutter/material.dart';
+
+class FileContextMenu extends StatelessWidget {
+  final bool isFolder;
+  final VoidCallback onNewFile;
+  final VoidCallback onNewFolder;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+  final VoidCallback onCopy;
+  final VoidCallback onCut;
+  final VoidCallback onPaste;
+  final VoidCallback onDuplicate;
+  final VoidCallback onOpenInExplorer;
+  final VoidCallback onExport;
+
+  const FileContextMenu({
+    super.key,
+    required this.isFolder,
+    required this.onNewFile,
+    required this.onNewFolder,
+    required this.onRename,
+    required this.onDelete,
+    required this.onCopy,
+    required this.onCut,
+    required this.onPaste,
+    required this.onDuplicate,
+    required this.onOpenInExplorer,
+    required this.onExport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(8),
+      child: IntrinsicWidth(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isFolder) ...[
+              _buildItem(Icons.insert_drive_file, "Novo Arquivo", onNewFile, shortcut: "Ctrl+N"),
+              _buildItem(Icons.create_new_folder, "Nova Pasta", onNewFolder, shortcut: "Ctrl+Shift+N"),
+              const Divider(),
+            ],
+            _buildItem(Icons.drive_file_rename_outline, "Renomear", onRename, shortcut: "F2"),
+            _buildItem(Icons.delete_outline, "Deletar", onDelete, shortcut: "Del"),
+            const Divider(),
+            _buildItem(Icons.copy, "Copiar", onCopy, shortcut: "Ctrl+C"),
+            _buildItem(Icons.cut, "Recortar", onCut, shortcut: "Ctrl+X"),
+            _buildItem(Icons.paste, "Colar", onPaste, shortcut: "Ctrl+V"),
+            _buildItem(Icons.copy_all, "Duplicar", onDuplicate),
+            const Divider(),
+            _buildItem(Icons.folder_open, "Abrir no Explorer", onOpenInExplorer),
+            _buildItem(Icons.archive_outlined, "Exportar", onExport),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItem(IconData icon, String text, VoidCallback onTap, {String? shortcut}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text)),
+            if (shortcut != null)
+              Text(shortcut, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+file_system_tree.dart
+
+
+import 'package:flutter/material.dart';
+import 'file_context_menu.dart';
+
+class FileSystemTree extends StatelessWidget {
+  const FileSystemTree({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        showDialog(
+          context: context,
+          builder: (_) => Stack(
+            children: [
+              Positioned(
+                left: details.globalPosition.dx,
+                top: details.globalPosition.dy,
+                child: FileContextMenu(
+                  isFolder: true, // ou false dependendo do nó clicado
+                  onNewFile: () => print("Novo arquivo"),
+                  onNewFolder: () => print("Nova pasta"),
+                  onRename: () => print("Renomear"),
+                  onDelete: () => print("Deletar"),
+                  onCopy: () => print("Copiar"),
+                  onCut: () => print("Recortar"),
+                  onPaste: () => print("Colar"),
+                  onDuplicate: () => print("Duplicar"),
+                  onOpenInExplorer: () => print("Abrir no Explorer"),
+                  onExport: () => print("Exportar"),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      child: const Center(
+        child: Text("Clique com o botão direito aqui"),
+      ),
+    );
+  }
+}
+
+
+
+fs_exporter.dart
+vazio  e sem codigo
+
+
+
+
+arquitetura do servidor python
+mkide_ia
+.idea
+caches
+deviceStreaming.xml
+.gitignore
+misc.xml
+mkide_ia.iml
+modules.xml
+workspace.xml
+.venv
+adapter
+adapter.py
+core
+agents
+agent_router.py
+runners
+shell_runner.py
+context_manager.py
+rag_indexer.py
+session_manager.py
+summarizer.py
+summarizer (cópia).py
+data
+indexes
+CineVerso1
+cineVerso_flix
+lib
+context.json
+mkideia_oficial
+sessions
+CineVerso1
+1756490776763
+session.jsonl
+session.meta.json
+default
+1756460675499
+1756487553149
+1756490776763
+1756538702942
+lib
+1756416451015
+1756460675499
+1756487553149
+1756490776763
+1756538702942
+1756609032409
+mkideia_oficial
+1756487553149
+session.jsonl
+session.meta.json
+history
+knowledge_base
+utils
+prompts
+system
+base_system.md
+io.py
+save_chat_log.py
+save_chat_log (cópia)
+save_chat_log (outra cópia)
+save_chat_log_original da v1
+adapter (6ª cópia).py
+adapter (cópia).py
+adapter (outra cópia).py
+config.py
+main.py
+mkideia.sh
+requirements.txt
+
+
+adapter.py
+#!/usr/bin/env python3
+import os
+import sys
+import time
+import json
+import logging
+import subprocess
+from typing import List, Any, Dict, Optional
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+import httpx
+
+# --- Config ---
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+ADAPTER_HOST = os.getenv("ADAPTER_HOST", "127.0.0.1")
+ADAPTER_PORT = int(os.getenv("ADAPTER_PORT", "5000"))
+
+logger = logging.getLogger("adapter")
+router = APIRouter()
+
+# import utils
+ROOT = os.getenv("MKIDE_ROOT", os.getcwd())
+sys.path.insert(0, os.path.join(ROOT, "utils"))
+from save_chat_log import append_message, ensure_session  # noqa
+
+# ----- Models -----
+class Message(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    model: Optional[str] = None
+    messages: Optional[List[Message]] = []
+    stream: Optional[bool] = True
+    delta_stream: Optional[bool] = False
+    # sessão
+    project_id: Optional[str] = "default"
+    session_id: Optional[str] = None
+
+# ----- Helpers -----
+def _extract_text_and_meta(data: Any) -> (str, Dict[str, Any]):
+    meta: Dict[str, Any] = {}
+    try:
+        if isinstance(data, dict):
+            if "message" in data and isinstance(data["message"], dict):
+                content = data["message"].get("content")
+                if content:
+                    meta.update({k: data.get(k) for k in ("model", "done", "done_reason", "total_duration", "load_duration") if k in data})
+                    return str(content), meta
+            for key in ("response", "completion", "text"):
+                if key in data and data[key]:
+                    meta.update({k: data.get(k) for k in ("model", "total_duration", "load_duration") if k in data})
+                    return str(data[key]), meta
+            if "choices" in data and isinstance(data["choices"], list) and data["choices"]:
+                c0 = data["choices"][0]
+                if isinstance(c0, dict):
+                    msg = c0.get("message")
+                    if isinstance(msg, dict) and msg.get("content"):
+                        meta.update(c0)
+                        return str(msg["content"]), meta
+                    if c0.get("text"):
+                        meta.update(c0)
+                        return str(c0["text"]), meta
+        return str(data), {"raw": data}
+    except Exception as e:
+        return str(data), {"error_extracting_meta": str(e), "raw": data}
+
+def resolve_project_id(req_project_id: Optional[str]) -> str:
+    """
+    Se project_id vier populado e diferente de 'default', usa ele.
+    Caso contrário, tenta detectar um project_id com context.json dentro de ROOT/data/indexes/*.
+    Se nenhum for encontrado, retorna 'default'.
+    Se múltiplos forem encontrados, escolhe o com context.json mais recentemente modificado.
+    """
+    logger.debug(f"[resolve_project_id] req_project_id={req_project_id}")
+    if req_project_id and req_project_id != "default":
+        logger.debug(f"[resolve_project_id] Usando project_id da requisição: {req_project_id}")
+        return req_project_id
+
+    # procura automaticamente por context.json em ROOT/data/indexes/<project>/
+    indexes_dir = os.path.join(ROOT, "data", "indexes")
+    logger.debug(f"[resolve_project_id] Procurando context.json em: {indexes_dir}")
+    if not os.path.isdir(indexes_dir):
+        logger.debug(f"[resolve_project_id] indexes_dir não existe: {indexes_dir}")
+        return "default"
+
+    candidates = []
+    try:
+        for entry in os.listdir(indexes_dir):
+            full_dir = os.path.join(indexes_dir, entry)
+            if not os.path.isdir(full_dir):
+                continue
+            context_path = os.path.join(full_dir, "context.json")
+            if os.path.exists(context_path):
+                try:
+                    mtime = os.path.getmtime(context_path)
+                except Exception:
+                    mtime = 0
+                candidates.append((entry, context_path, mtime))
+                logger.debug(f"[resolve_project_id] Encontrado context.json -> project={entry}, path={context_path}, mtime={mtime}")
+    except Exception as e:
+        logger.exception(f"[resolve_project_id] Erro listando indexes_dir: {e}")
+        return "default"
+
+    if not candidates:
+        logger.debug("[resolve_project_id] Nenhum context.json encontrado em indexes_dir")
+        return "default"
+
+    # escolhe o mais recentemente modificado
+    candidates.sort(key=lambda x: x[2], reverse=True)
+    chosen = candidates[0][0]
+    logger.debug(f"[resolve_project_id] Escolhido project_id detectado: {chosen} (path={candidates[0][1]})")
+    return chosen
+
+# ----- Endpoints -----
+@router.get("/v1/models")
+async def v1_models():
+    models = []
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        try:
+            r = await client.get(f"{OLLAMA_URL}/api/models")
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list):
+                    for m in data:
+                        name = m.get("name") or m.get("model") or m.get("id") or str(m)
+                        models.append({"id": name, "object": "model", "owned_by": "local"})
+                elif isinstance(data, dict) and "models" in data:
+                    for m in data["models"]:
+                        models.append({"id": m.get("name"), "object": "model", "owned_by": "local"})
+                else:
+                    models.append({"id": str(data), "object": "model", "owned_by": "local"})
+                return {"object": "list", "data": models}
+        except Exception:
+            pass
+    # fallback CLI
+    try:
+        out = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
+        lines = out.stdout.splitlines()
+        parsed = []
+        for line in lines:
+            line = line.strip()
+            if not line or line.lower().startswith(("name", "model")):
+                continue
+            parts = line.split()
+            if parts:
+                parsed.append({"id": parts[0], "object": "model", "owned_by": "local"})
+        if parsed:
+            return {"object": "list", "data": parsed}
+    except Exception as e:
+        logger.exception("ollama list failed: %s", e)
+    raise HTTPException(status_code=500, detail="Não foi possível listar modelos.")
+
+@router.post("/v1/chat/completions")
+async def v1_chat(req: ChatRequest):
+    model = (req.model or "").strip()
+    if not model:
+        raise HTTPException(400, "Campo 'model' é obrigatório.")
+    # resolvemos project_id com função para evitar usar sempre 'default'
+    project_id = resolve_project_id(req.project_id)
+    session_id = req.session_id
+    if not session_id:
+        raise HTTPException(400, "Campo 'session_id' é obrigatório. Crie em /session/new.")
+
+    # --- Debug inicial ---
+    logger.info(f"[v1_chat] Iniciando /v1/chat/completions -- model={model}, project_id={project_id}, session_id={session_id}")
+    ensure_session(project_id, session_id, model=model)
+    logger.debug(f"[v1_chat] Sessão garantida para project_id={project_id}, session_id={session_id}")
+
+    # --- Caminho do context.json mais provável ---
+    context_path = os.path.join(ROOT, "data", "indexes", project_id, "context.json")
+    logger.debug(f"[v1_chat] context.json path calculado: {context_path}")
+
+    context_messages: List[Dict[str, Any]] = []
+    if os.path.exists(context_path):
+        try:
+            with open(context_path, "r", encoding="utf-8") as f:
+                raw = f.read()
+                # tenta decodificar - suportar tanto um dict como uma lista pré-formatada de mensagens
+                parsed = json.loads(raw)
+                # Se o arquivo foi salvo como mapa { "file": "snippet" }, transformamos em system message
+                if isinstance(parsed, dict):
+                    summary = "\n".join([f"{k}: {v}" for k, v in parsed.items()])
+                    system_msg = {"role": "system", "content": f"Contexto do projeto:\n{summary}"}
+                    context_messages = [system_msg]
+                    logger.debug(f"[v1_chat] context.json carregado e transformado em system message ({len(parsed)} arquivos resumidos)")
+                elif isinstance(parsed, list):
+                    # assumimos que list já contém mensagens formatadas {role, content}
+                    context_messages = parsed
+                    logger.debug(f"[v1_chat] context.json carregado como lista de mensagens ({len(parsed)})")
+                else:
+                    # fallback: stringify
+                    system_msg = {"role": "system", "content": f"Contexto do projeto (raw):\n{json.dumps(parsed)[:10000]}"}
+                    context_messages = [system_msg]
+                    logger.debug("[v1_chat] context.json carregado em formato não padrão; convertido para system message")
+        except Exception as e:
+            logger.exception(f"[v1_chat] Falha ao ler/parsear context.json: {e}")
+    else:
+        logger.warning(f"[v1_chat] Arquivo context.json não encontrado para project_id={project_id}: {context_path}")
+
+    # --- Debug mensagens recebidas ---
+    if req.messages:
+        logger.debug(f"[v1_chat] Mensagens recebidas (count={len(req.messages)})")
+        for i, m in enumerate(req.messages):
+            logger.debug(f"[v1_chat] Mensagem[{i}] role={m.role} content_preview={m.content[:200].replace('\\n',' ')}")
+
+    # --- Monta payload final: contexto (se houver) + mensagens da requisição ---
+    messages_payload = []
+    if context_messages:
+        messages_payload.extend(context_messages)
+        logger.info(f"[v1_chat] Contexto injetado nas mensagens. Total context entries: {len(context_messages)}")
+    messages_payload.extend([m.model_dump() for m in (req.messages or [])])
+    logger.debug(f"[v1_chat] messages_payload total length: {len(messages_payload)}")
+
+    # --- Função SSE streaming ---
+    async def sse_stream():
+        full_text = ""
+        logger.debug("[v1_chat] Iniciando streaming SSE para Ollama...")
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream("POST", f"{OLLAMA_URL}/api/chat",
+                                         json={"model": model, "messages": messages_payload, "stream": True}) as r:
+                    r.raise_for_status()
+                    async for raw in r.aiter_lines():
+                        if not raw:
+                            continue
+                        try:
+                            data = json.loads(raw)
+                            delta = data.get("message", {}).get("content", "")
+                            if delta:
+                                full_text += delta
+                                logger.debug(f"[v1_chat][delta] {delta[:120].replace(chr(10),' ')}")
+                                yield f"data: {json.dumps({'delta': delta})}\n\n"
+                            if data.get("done"):
+                                break
+                        except Exception:
+                            # tenta extrair payloads do tipo 'data: {...}'
+                            if raw.startswith("data:"):
+                                payload = raw[len("data:"):].strip()
+                                try:
+                                    data = json.loads(payload)
+                                    delta = data.get("message", {}).get("content", "")
+                                    if delta:
+                                        full_text += delta
+                                        logger.debug(f"[v1_chat][delta-fallback] {delta[:120].replace(chr(10),' ')}")
+                                        yield f"data: {json.dumps({'delta': delta})}\n\n"
+                                except Exception:
+                                    logger.debug(f"[v1_chat] raw non-json line: {raw[:200]}")
+                    append_message(project_id, session_id, "assistant", full_text, {"model": model, "phase": "complete"})
+                    logger.info(f"[v1_chat] Mensagem do assistente salva, tamanho={len(full_text)}")
+                    yield "data: [DONE]\n\n"
+        except httpx.HTTPError as e:
+            logger.exception(f"[v1_chat] Ollama stream error: {e}")
+            raise HTTPException(502, f"Erro no streaming do Ollama: {e}") from e
+
+    if req.stream:
+        headers = {"Cache-Control": "no-cache", "Content-Type": "text/event-stream", "Connection": "keep-alive"}
+        return StreamingResponse(sse_stream(), headers=headers, status_code=200)
+
+    # --- Modo não-stream ---
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        r = await client.post(f"{OLLAMA_URL}/api/chat", json={"model": model, "messages": messages_payload, "stream": False})
+        r.raise_for_status()
+        data = r.json()
+        text, meta = _extract_text_and_meta(data)
+        append_message(project_id, session_id, "assistant", text, {"model": model, "phase": "complete", "meta": meta})
+        logger.info(f"[v1_chat] Mensagem final do assistente salva, tamanho={len(text)}")
+        now_ts = int(time.time())
+        return {
+            "id": f"chatcmpl-local-{now_ts}",
+            "object": "chat.completion",
+            "created": now_ts,
+            "model": model,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
+        }
+
+
+
+agent_router.py
+def choose_agent(user_text: str) -> str:
+    t = user_text.lower()
+    if any(k in t for k in ["docker", "deploy", "k8s", "infra"]):
+        return "infra"
+    if any(k in t for k in ["schema", "sql", "migration", "query"]):
+        return "db"
+    if any(k in t for k in ["api", "endpoint", "rest", "graphql"]):
+        return "api"
+    if any(k in t for k in ["flutter", "widget", "dart", "ui"]):
+        return "flutter"
+    return "code"  # default
+
+
+
+shell_runner.py
+import subprocess
+
+def run_cmd(cmd: str, cwd: str | None = None, timeout: int = 120):
+    try:
+        out = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        return {"ok": out.returncode == 0, "code": out.returncode, "stdout": out.stdout, "stderr": out.stderr}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "code": -1, "stdout": "", "stderr": "Timeout"}
+
+
+
+context_manager.py
+from fastapi import APIRouter
+from pydantic import BaseModel
+from utils.save_chat_log import load_tail, read_summary
+
+router = APIRouter()
+
+class BuildContextReq(BaseModel):
+    project_id: str = "default"
+    session_id: str
+    max_messages: int = 30
+    system_prompt: str | None = None
+    task: str | None = None
+    rag_chunks: list[str] | None = None
+
+@router.post("/build")
+def build_context(req: BuildContextReq):
+    summary = read_summary(req.project_id, req.session_id)
+    tail = load_tail(req.project_id, req.session_id, req.max_messages)
+    history = [{"role": m["role"], "content": m["content"]} for m in tail]
+    messages = []
+    if req.system_prompt:
+        messages.append({"role": "system", "content": req.system_prompt})
+    if summary:
+        messages.append({"role": "system", "content": f"[RESUMO DA SESSÃO]\n{summary}"})
+    if req.task:
+        messages.append({"role": "system", "content": f"[TAREFA]\n{req.task}"})
+    if req.rag_chunks:
+        ctx = "\n\n".join(req.rag_chunks[:6])
+        messages.append({"role": "system", "content": f"[CONTEXTOS RELEVANTES]\n{ctx}"})
+    messages.extend(history)
+    return {"ok": True, "messages": messages}
+
+
+
+rag_indexer.py
+import os, glob
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class IndexReq(BaseModel):
+    project_id: str = "default"
+    root_path: str
+
+@router.post("/index")
+def index_project(req: IndexReq):
+    # v0: só varre e guarda lista básica (melhorar depois com embeddings)
+    result = []
+    for path in glob.glob(os.path.join(req.root_path, "**", "*"), recursive=True):
+        if os.path.isfile(path) and os.path.getsize(path) < 2_000_000:
+            result.append(path)
+    return {"ok": True, "files_count": len(result)}
+
+class QueryReq(BaseModel):
+    project_id: str = "default"
+    root_path: str
+    query: str
+    limit: int = 6
+
+@router.post("/query")
+def query(req: QueryReq):
+    # v0: busca burra por palavra-chave; depois trocar por embeddings
+    hits = []
+    for path in glob.glob(os.path.join(req.root_path, "**", "*"), recursive=True):
+        if os.path.isfile(path) and os.path.getsize(path) < 500_000:
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    txt = f.read()
+                if req.query.lower() in txt.lower():
+                    snippet = txt[:800]
+                    hits.append({"path": path, "snippet": snippet})
+            except Exception:
+                pass
+        if len(hits) >= req.limit: break
+    return {"ok": True, "chunks": [h["snippet"] for h in hits], "hits": hits}
+
+
+
+session_manager.py
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+import uuid
+from utils.save_chat_log import ensure_session
+
+router = APIRouter()
+
+class NewSessionReq(BaseModel):
+    project_id: str = "default"
+    title: str | None = None
+    model: str | None = None
+
+class SelectSessionReq(BaseModel):
+    project_id: str = "default"
+    session_id: str
+
+@router.post("/new")
+def new_session(req: NewSessionReq):
+    session_id = uuid.uuid4().hex[:12]
+    ensure_session(req.project_id, session_id, req.title, req.model)
+    return {"ok": True, "project_id": req.project_id, "session_id": session_id}
+
+@router.post("/select")
+def select_session(req: SelectSessionReq):
+    ensure_session(req.project_id, req.session_id)
+    return {"ok": True, "project_id": req.project_id, "session_id": req.session_id}
+
+
+summarizer.py
+from fastapi import APIRouter
+from pydantic import BaseModel
+import os, json
+
+router = APIRouter()
+
+BASE_DIR = os.path.expanduser("~/.mkide/projects")
+
+class ContextReq(BaseModel):
+    project_id: str = "default"
+
+@router.post("/get_context")
+def get_context(req: ContextReq):
+    fpath = os.path.join(BASE_DIR, req.project_id, "context.json")
+    if not os.path.exists(fpath):
+        return {"ok": False, "context": {}}
+    with open(fpath) as f:
+        return {"ok": True, "context": json.load(f)}
+
+@router.post("/set_context")
+def set_context(req: ContextReq, context: dict):
+    proj_dir = os.path.join(BASE_DIR, req.project_id)
+    os.makedirs(proj_dir, exist_ok=True)
+    fpath = os.path.join(proj_dir, "context.json")
+    with open(fpath, "w") as f:
+        json.dump(context, f, indent=2)
+    return {"ok": True, "saved_at": fpath}
+
+
+
+base_system.md
+vazio
+
+
+io.py
+import os, json
+
+def read_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+def write_text(path: str, text: str):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+def write_json(path: str, data: dict):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+
+save_chat_log.py
+from __future__ import annotations
+from datetime import datetime
+import json, os, pathlib, orjson
+
+ROOT = os.getenv("MKIDE_ROOT", os.getcwd())
+DATA_DIR = os.path.join(ROOT, "data")
+SESSIONS_DIR = os.path.join(DATA_DIR, "sessions")
+os.makedirs(SESSIONS_DIR, exist_ok=True)
+
+def _session_paths(project_id: str, session_id: str):
+    base = os.path.join(SESSIONS_DIR, project_id, session_id)
+    os.makedirs(base, exist_ok=True)
+    return {
+        "base": base,
+        "jsonl": os.path.join(base, "session.jsonl"),
+        "meta": os.path.join(base, "session.meta.json"),
+    }
+
+def ensure_session(project_id: str, session_id: str, title: str | None = None, model: str | None = None):
+    p = _session_paths(project_id, session_id)
+    if not os.path.exists(p["meta"]):
+        meta = {
+            "project_id": project_id,
+            "session_id": session_id,
+            "title": title or f"Sessão {session_id}",
+            "model": model or "",
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+            "summary": "",
+            "msg_count": 0,
+        }
+        with open(p["meta"], "wb") as f:
+            f.write(orjson.dumps(meta, option=orjson.OPT_INDENT_2))
+    if not os.path.exists(p["jsonl"]):
+        open(p["jsonl"], "a", encoding="utf-8").close()
+    return p
+
+def append_message(project_id: str, session_id: str, role: str, content: str, meta: dict | None = None):
+    p = ensure_session(project_id, session_id)
+    record = {
+        "ts": datetime.utcnow().isoformat(),
+        "role": role,
+        "content": content,
+        "meta": meta or {}
+    }
+    with open(p["jsonl"], "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    # update meta
+    with open(p["meta"], "rb") as f:
+        m = orjson.loads(f.read())
+    m["updated_at"] = datetime.utcnow().isoformat()
+    m["msg_count"] = int(m.get("msg_count", 0)) + 1
+    with open(p["meta"], "wb") as f:
+        f.write(orjson.dumps(m, option=orjson.OPT_INDENT_2))
+    return p
+
+def load_tail(project_id: str, session_id: str, max_messages: int = 30):
+    p = _session_paths(project_id, session_id)
+    msgs = []
+    if not os.path.exists(p["jsonl"]):
+        return msgs
+    with open(p["jsonl"], "r", encoding="utf-8") as f:
+        lines = f.readlines()[-max_messages:]
+    for line in lines:
+        try:
+            msgs.append(json.loads(line))
+        except Exception:
+            pass
+    return msgs
+
+def read_summary(project_id: str, session_id: str) -> str:
+    p = _session_paths(project_id, session_id)
+    if not os.path.exists(p["meta"]): return ""
+    with open(p["meta"], "rb") as f:
+        m = orjson.loads(f.read())
+    return m.get("summary", "")
+
+def write_summary(project_id: str, session_id: str, summary: str):
+    p = _session_paths(project_id, session_id)
+    ensure_session(project_id, session_id)
+    with open(p["meta"], "rb") as f:
+        m = orjson.loads(f.read())
+    m["summary"] = summary
+    m["updated_at"] = datetime.utcnow().isoformat()
+    with open(p["meta"], "wb") as f:
+        f.write(orjson.dumps(m, option=orjson.OPT_INDENT_2))
+
+
+
+config.py
+# File: /home/mk/mkide_ia/config.py
+
+import json
+from pathlib import Path
+
+context = {}
+
+CONTEXT_FILE = Path('/home/mk/mkide_ia/data/indexes/lib/context.json')
+
+def get_context():
+    global context
+    if not context:
+        if CONTEXT_FILE.exists():
+            with open(CONTEXT_FILE, 'r', encoding='utf-8') as f:
+                context = json.load(f)
+        else:
+            context = {}
+    return context
+
+
+main.py
+#!/usr/bin/env python3
+import os
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from adapter.adapter import router as adapter_router
+from core.session_manager import router as session_router
+from core.context_manager import router as context_router
+from core.rag_indexer import router as rag_router
+from core.summarizer import router as summarizer_router
+
+app = FastAPI(title="MK IDE I.A — Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=True
+)
+
+# Routers
+app.include_router(session_router, prefix="/session", tags=["sessions"])
+app.include_router(context_router, prefix="/context", tags=["context"])
+app.include_router(rag_router, prefix="/rag", tags=["rag"])
+app.include_router(summarizer_router, prefix="/summarize", tags=["summarize"])
+app.include_router(adapter_router, prefix="", tags=["adapter"])  # mantém /v1/*
+
+@app.get("/")
+def root():
+    return {"ok": True, "service": "MK IDE I.A", "endpoints": ["/session", "/v1/chat/completions"]}
+
+if __name__ == "__main__":
+    import uvicorn
+    host = os.getenv("ADAPTER_HOST", "127.0.0.1")
+    port = int(os.getenv("ADAPTER_PORT", "5000"))
+    uvicorn.run("main:app", host=host, port=port, reload=True)
+
+
+requirements.txt
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+httpx==0.27.0
+pydantic==2.7.1
+python-multipart==0.0.9
+orjson==3.10.7
+
+
+
+
+
+
+
+
+
+
+
+
+mas uma vez repito, sou leigo e não entendo dos termos tecnico usados acima e nem em programação, por isso quero um agente de plano mestre que seja auto explicativo, que faça entender e aprender o que esta sendo feito, que ja tenha tudo definido e masticado para chegamos um plano mestre proximo do que queremos com a ideia para a criação de quaisquer projetos e que depois do plano mestre criado(pronto), eu trabalhando junto com a ia consigamos aperfeiçoar, melhorar, atualizar, detalhar, add o que esteja faltando e etc. 2. acredito que gostei do que voce fez acima, mas por favor pegue todos os dados do endereço: https://duasrodas.app.br/mkideia/plano_mestre_para_criar_agente_arquiteto analise e crie o plano mestre dessas ideias, não precisa gerar o codigo, precisamos do plano completo para depois gerar os codigos. definindo arquitetura de pasta arquivos que ira ser criados e tudo que for necessario baseado nas informações que discutimos e que estão no endereço acima, aproveite as melhores ideias. 3. avalie tambem add alem do checklist do plano, criamos um checkliste de todos os codigos que serão cirados em todas as fases, assim poderemos acompanhar todos os codigo que ja foram emplementados ou neste caso podemos criar um outro agente apenas para fazer isso, acompanhar o codigo para correções(essa parte ainda estou com muitas duvidas e ainda não definir) 4. vamos escolher o melhor lugar para pasta agentes onde colocaremos tudo separado da arquitetura de pasta do projeto, ou seja ou  criamos essa pasta dentro da lib ou dentro do src uma pasta AGENTE onde teremos uma arquitetura separada por exemplo lib/src/agentes/plano_mestre/outras pastas e arquivos. Para outro agente criamos dentro da pasta agente, aproveitamos o que podemos aproveitar dos outros arquivos e criamos o que for necessario.
+
+5. para criar nosso agente plano mestre veja todo o nosso projeto atual(codigos) para melhor analise, avaliações e criação do plano mestre e de onde queremos chegar: https://duasrodas.app.br/mkideia/codigos_atuais
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
